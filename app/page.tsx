@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -119,7 +119,7 @@ export default function InvestmentCalculator() {
   };
 
   // Buscar taxas reais do Banco Central
-  const fetchRealRates = async () => {
+  const fetchRealRates = useCallback(async () => {
     setLoadingRates(true);
     setRatesError(false);
 
@@ -229,7 +229,7 @@ export default function InvestmentCalculator() {
     } finally {
       setLoadingRates(false);
     }
-  };
+  }, [fallbackRates]);
 
   // Verificar se precisa atualizar
   const shouldUpdate = (timestamp: number) => {
@@ -1425,7 +1425,7 @@ export default function InvestmentCalculator() {
                     <div className="text-center py-8 text-slate-400">
                       <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p>Nenhuma meta cadastrada ainda.</p>
-                      <p className="text-sm">Clique em "Adicionar Meta" para começar!</p>
+                      <p className="text-sm">Clique em &quot;Adicionar Meta&quot; para começar!</p>
                     </div>
                   )}
                 </CardContent>
