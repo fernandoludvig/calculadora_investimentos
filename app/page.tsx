@@ -125,10 +125,13 @@ export default function InvestmentCalculator() {
     setRatesError(false);
 
     try {
-      // Buscar dados das APIs do Banco Central em paralelo
+      // Buscar dados das APIs do Banco Central
       const [selicRes, cdiRes, ipcaRes] = await Promise.all([
-        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json'),
-        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json'),
+        // Selic Meta definida pelo Copom (anual)
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json'),
+        // CDI - taxa over anualizada
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json'),
+        // IPCA - últimos 12 meses
         fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json')
       ]);
 
@@ -140,9 +143,11 @@ export default function InvestmentCalculator() {
       const cdiData = await cdiRes.json();
       const ipcaData = await ipcaRes.json();
 
-      // Processar dados
-      const selicAnual = parseFloat(selicData[0]?.valor || fallbackRates.selic * 100) / 100;
-      const cdiAnual = parseFloat(cdiData[0]?.valor || fallbackRates.cdi * 100) / 100;
+      // Processar Selic (já vem anualizada em %)
+      const selicAnual = parseFloat(selicData[0]?.valor) / 100 || fallbackRates.selic;
+      
+      // Processar CDI (já vem anualizado em %)
+      const cdiAnual = parseFloat(cdiData[0]?.valor) / 100 || fallbackRates.cdi;
       
       // IPCA acumulado dos últimos 12 meses
       const ipcaAcumulado = ipcaData.reduce((acc: number, item: any) => {
@@ -170,8 +175,14 @@ export default function InvestmentCalculator() {
       // Salvar no cache
       localStorage.setItem('investmentRates', JSON.stringify(newRatesData));
       
+      console.log('✅ Taxas atualizadas:', {
+        selic: `${(selicAnual * 100).toFixed(2)}%`,
+        cdi: `${(cdiAnual * 100).toFixed(2)}%`,
+        ipca: `${(ipcaAcumulado * 100).toFixed(2)}%`
+      });
+      
     } catch (error) {
-      console.error('Erro ao buscar taxas:', error);
+      console.error('❌ Erro ao buscar taxas:', error);
       setRatesError(true);
       
       // Usar cache se disponível, senão usar fallback
@@ -179,11 +190,8 @@ export default function InvestmentCalculator() {
       if (cached) {
         const cacheData = JSON.parse(cached);
         setRatesData({
-          selic: cacheData.selic,
-          cdi: cacheData.cdi,
-          ipca: cacheData.ipca,
-          lastUpdate: cacheData.lastUpdate + ' (cache)',
-          timestamp: cacheData.timestamp
+          ...cacheData,
+          lastUpdate: cacheData.lastUpdate + ' (cache)'
         });
       } else {
         setRatesData(fallbackRates);
