@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,7 @@ export default function InvestmentCalculator() {
   const [ratesData, setRatesData] = useState<RateData | null>(null);
   const [loadingRates, setLoadingRates] = useState(true);
   const [ratesError, setRatesError] = useState(false);
+  const ratesLoadedRef = useRef(false);
   
   const [compareMode, setCompareMode] = useState(false);
   const [scenario2, setScenario2] = useState({
@@ -363,10 +364,13 @@ export default function InvestmentCalculator() {
     return data;
   };
 
-  // Carregar taxas ao montar o componente
+  // Carregar taxas ao montar o componente (apenas uma vez)
   useEffect(() => {
+    if (ratesLoadedRef.current) return;
+    
     const loadRates = async () => {
       console.log('🚀 Iniciando carregamento das taxas...');
+      ratesLoadedRef.current = true;
       
       // Verificar cache primeiro
       const cached = localStorage.getItem('investmentRates');
@@ -401,7 +405,7 @@ export default function InvestmentCalculator() {
     }, 60 * 60 * 1000); // Verificar a cada hora
 
     return () => clearInterval(interval);
-  }, [fetchRealRates]);
+  }, []); // Array vazio para executar apenas uma vez
 
   useEffect(() => {
     if (delayMonths > 0) {
