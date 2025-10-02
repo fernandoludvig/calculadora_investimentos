@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from 'recharts';
-import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, FileText, Table, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, RefreshCw, Wifi, WifiOff, FileText, Table, FileSpreadsheet } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -32,6 +32,21 @@ interface Simulation {
   profit: number;
 }
 
+interface RateData {
+  selic: number;
+  cdi: number;
+  ipca: number;
+  lastUpdate: string;
+  timestamp: number;
+}
+
+interface Investment {
+  name: string;
+  rate: number;
+  color: string;
+  description: string;
+}
+
 export default function InvestmentCalculator() {
   const [initialAmount, setInitialAmount] = useState(1000);
   const [monthlyDeposit, setMonthlyDeposit] = useState(500);
@@ -41,6 +56,11 @@ export default function InvestmentCalculator() {
   const [lostMoney, setLostMoney] = useState(0);
   const [copied, setCopied] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  
+  // Estados para taxas reais
+  const [ratesData, setRatesData] = useState<RateData | null>(null);
+  const [loadingRates, setLoadingRates] = useState(true);
+  const [ratesError, setRatesError] = useState(false);
   
   const [compareMode, setCompareMode] = useState(false);
   const [scenario2, setScenario2] = useState({
@@ -90,44 +110,148 @@ export default function InvestmentCalculator() {
     setCustomGoals(customGoals.filter(goal => goal.id !== id));
   };
 
-  const investments = {
-    poupanca: { 
-      name: 'Poupança', 
-      rate: 0.07, 
-      color: '#94a3b8',
-      description: 'Segura e líquida, mas menor rentabilidade'
-    },
-    cdb: { 
-      name: 'CDB 115% CDI', 
-      rate: 0.115, 
-      color: '#10b981',
-      description: 'Boa rentabilidade com segurança (FGC)'
-    },
-    tesouroDireto: { 
-      name: 'Tesouro Selic', 
-      rate: 0.12, 
-      color: '#3b82f6',
-      description: 'Baixíssimo risco, liquidez diária'
-    },
-    tesouroIPCA: { 
-      name: 'Tesouro IPCA+', 
-      rate: 0.135, 
-      color: '#8b5cf6',
-      description: 'Protege contra inflação + juros'
-    },
-    acoes: { 
-      name: 'Ações (Ibovespa)', 
-      rate: 0.15, 
-      color: '#f59e0b',
-      description: 'Alto potencial, maior volatilidade'
-    },
-    fundos: { 
-      name: 'Fundos Multimercado', 
-      rate: 0.13, 
-      color: '#ec4899',
-      description: 'Diversificação profissional'
+  // Taxas fallback (caso API falhe)
+  const fallbackRates: RateData = {
+    selic: 0.15,
+    cdi: 0.1490,
+    ipca: 0.0523,
+    lastUpdate: 'Estimativa (API indisponível)',
+    timestamp: Date.now()
+  };
+
+  // Buscar taxas reais do Banco Central
+  const fetchRealRates = async () => {
+    setLoadingRates(true);
+    setRatesError(false);
+
+    try {
+      // Buscar dados das APIs do Banco Central em paralelo
+      const [selicRes, cdiRes, ipcaRes] = await Promise.all([
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json'),
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json'),
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json')
+      ]);
+
+      if (!selicRes.ok || !cdiRes.ok || !ipcaRes.ok) {
+        throw new Error('Erro ao buscar dados');
+      }
+
+      const selicData = await selicRes.json();
+      const cdiData = await cdiRes.json();
+      const ipcaData = await ipcaRes.json();
+
+      // Processar dados
+      const selicAnual = parseFloat(selicData[0]?.valor || fallbackRates.selic * 100) / 100;
+      const cdiAnual = parseFloat(cdiData[0]?.valor || fallbackRates.cdi * 100) / 100;
+      
+      // IPCA acumulado dos últimos 12 meses
+      const ipcaAcumulado = ipcaData.reduce((acc: number, item: any) => {
+        const valor = parseFloat(item.valor) / 100;
+        return acc * (1 + valor);
+      }, 1) - 1;
+
+      const now = new Date();
+      const newRatesData: RateData = {
+        selic: selicAnual,
+        cdi: cdiAnual,
+        ipca: ipcaAcumulado,
+        lastUpdate: now.toLocaleString('pt-BR', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        timestamp: now.getTime()
+      };
+
+      setRatesData(newRatesData);
+      
+      // Salvar no cache
+      localStorage.setItem('investmentRates', JSON.stringify(newRatesData));
+      
+    } catch (error) {
+      console.error('Erro ao buscar taxas:', error);
+      setRatesError(true);
+      
+      // Usar cache se disponível, senão usar fallback
+      const cached = localStorage.getItem('investmentRates');
+      if (cached) {
+        const cacheData = JSON.parse(cached);
+        setRatesData({
+          selic: cacheData.selic,
+          cdi: cacheData.cdi,
+          ipca: cacheData.ipca,
+          lastUpdate: cacheData.lastUpdate + ' (cache)',
+          timestamp: cacheData.timestamp
+        });
+      } else {
+        setRatesData(fallbackRates);
+      }
+    } finally {
+      setLoadingRates(false);
     }
   };
+
+  // Verificar se precisa atualizar
+  const shouldUpdate = (timestamp: number) => {
+    const now = Date.now();
+    const hoursSinceUpdate = (now - timestamp) / (1000 * 60 * 60);
+    
+    // Atualizar se passou mais de 24 horas
+    return hoursSinceUpdate >= 24;
+  };
+
+  // Calcular taxas dos investimentos baseadas nas taxas reais
+  const getInvestments = (): Record<string, Investment> => {
+    const baseRates = ratesData || fallbackRates;
+    
+    // Poupança: 0,5% mês quando Selic > 8,5%
+    const poupancaRate = baseRates.selic > 0.085 
+      ? Math.pow(1.005, 12) - 1  // 6,17% a.a.
+      : baseRates.selic * 0.7;
+
+    return {
+      poupanca: { 
+        name: 'Poupança', 
+        rate: poupancaRate,
+        color: '#94a3b8',
+        description: '0,5% mês + TR ≈ 6,17% a.a.'
+      },
+      cdb: { 
+        name: 'CDB 115% CDI', 
+        rate: baseRates.cdi * 1.15,
+        color: '#10b981',
+        description: `CDI ${(baseRates.cdi * 100).toFixed(2)}% × 1,15`
+      },
+      tesouroDireto: { 
+        name: 'Tesouro Selic', 
+        rate: baseRates.selic,
+        color: '#3b82f6',
+        description: `Acompanha Selic ${(baseRates.selic * 100).toFixed(2)}%`
+      },
+      tesouroIPCA: { 
+        name: 'Tesouro IPCA+', 
+        rate: baseRates.ipca + 0.068, // IPCA + ~6,8% juros reais
+        color: '#8b5cf6',
+        description: `IPCA ${(baseRates.ipca * 100).toFixed(2)}% + 6,8% real`
+      },
+      acoes: { 
+        name: 'Ações (Ibovespa)', 
+        rate: 0.10,
+        color: '#f59e0b',
+        description: 'Média histórica ~10% a.a.'
+      },
+      fundos: { 
+        name: 'Fundos Multimercado', 
+        rate: baseRates.cdi * 0.90,
+        color: '#ec4899',
+        description: `~90% CDI ≈ ${(baseRates.cdi * 0.90 * 100).toFixed(2)}%`
+      }
+    };
+  };
+
+  const investments = getInvestments();
 
   const calculateInvestment = (initial: number, monthly: number, years: number, rate: number, delayMonths: number = 0) => {
     const monthlyRate = rate / 12;
@@ -206,6 +330,49 @@ export default function InvestmentCalculator() {
     return data;
   };
 
+  // Carregar taxas ao montar o componente
+  useEffect(() => {
+    const loadRates = async () => {
+      // Verificar cache
+      const cached = localStorage.getItem('investmentRates');
+      
+      if (cached) {
+        const cacheData = JSON.parse(cached);
+        
+        // Verificar se cache ainda é válido
+        if (!shouldUpdate(cacheData.timestamp)) {
+          setRatesData({
+            selic: cacheData.selic,
+            cdi: cacheData.cdi,
+            ipca: cacheData.ipca,
+            lastUpdate: cacheData.lastUpdate,
+            timestamp: cacheData.timestamp
+          });
+          setLoadingRates(false);
+          return;
+        }
+      }
+      
+      // Buscar dados novos
+      await fetchRealRates();
+    };
+
+    loadRates();
+
+    // Configurar atualização automática a cada 24 horas
+    const interval = setInterval(() => {
+      const cached = localStorage.getItem('investmentRates');
+      if (cached) {
+        const cacheData = JSON.parse(cached);
+        if (shouldUpdate(cacheData.timestamp)) {
+          fetchRealRates();
+        }
+      }
+    }, 60 * 60 * 1000); // Verificar a cada hora
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (delayMonths > 0) {
       const onTime = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
@@ -214,7 +381,7 @@ export default function InvestmentCalculator() {
     } else {
       setLostMoney(0);
     }
-  }, [initialAmount, monthlyDeposit, years, delayMonths, selectedInvestment]);
+  }, [initialAmount, monthlyDeposit, years, delayMonths, selectedInvestment, ratesData]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -522,8 +689,37 @@ export default function InvestmentCalculator() {
             O Preço de <span className="text-red-500">Esperar</span>
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Descubra quanto dinheiro você está perdendo AGORA por não começar a investir
+            Taxas atualizadas automaticamente via API do Banco Central
           </p>
+
+          {/* Status das taxas */}
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            {loadingRates ? (
+              <Badge variant="outline" className="bg-yellow-950/30 border-yellow-800 text-yellow-400">
+                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                Atualizando taxas...
+              </Badge>
+            ) : ratesError ? (
+              <Badge variant="outline" className="bg-red-950/30 border-red-800 text-red-400">
+                <WifiOff className="w-3 h-3 mr-1" />
+                Usando cache/estimativa
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-emerald-950/30 border-emerald-800 text-emerald-400">
+                <Wifi className="w-3 h-3 mr-1" />
+                Taxas oficiais BCB
+              </Badge>
+            )}
+            
+            <button
+              onClick={fetchRealRates}
+              disabled={loadingRates}
+              className="flex items-center gap-2 px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-700 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${loadingRates ? 'animate-spin' : ''}`} />
+              Atualizar agora
+            </button>
+          </div>
           
           <div className="flex flex-wrap justify-center gap-3 pt-4">
             <button
@@ -625,6 +821,40 @@ export default function InvestmentCalculator() {
             </div>
           </div>
         </div>
+
+        {/* Banner com taxas atuais */}
+        {ratesData && !loadingRates && (
+          <Card className="bg-slate-900/50 border-slate-800">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="text-slate-400 text-xs mb-1">Selic</div>
+                  <div className="text-white font-bold text-lg">
+                    {(ratesData.selic * 100).toFixed(2)}% a.a.
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-xs mb-1">CDI</div>
+                  <div className="text-white font-bold text-lg">
+                    {(ratesData.cdi * 100).toFixed(2)}% a.a.
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-xs mb-1">IPCA (12m)</div>
+                  <div className="text-white font-bold text-lg">
+                    {(ratesData.ipca * 100).toFixed(2)}%
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400 text-xs mb-1">CDB 115% CDI</div>
+                  <div className="text-emerald-400 font-bold text-lg">
+                    {(investments.cdb.rate * 100).toFixed(2)}% a.a.
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {delayMonths > 0 && !compareMode && (
           <Alert className="bg-red-950/50 border-red-900">
@@ -1231,16 +1461,35 @@ export default function InvestmentCalculator() {
 
         <Card className="bg-slate-900/30 border-slate-800/50 backdrop-blur">
           <CardContent className="p-6">
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-3">
               <p className="text-slate-400 text-sm">
-                💡 <strong>Dica PWA:</strong> Adicione este site à tela inicial do seu celular para usar como app! 
-                No Chrome: Menu → "Adicionar à tela inicial"
+                💡 <strong>Dica PWA:</strong> Adicione este site à tela inicial do seu celular para usar como app!
               </p>
-              <p className="text-slate-400 text-sm">
-                Simulação usando taxas aproximadas do mercado brasileiro. Valores para fins educacionais.
-              </p>
+              
+              {ratesData && (
+                <div className="max-w-3xl mx-auto p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <Clock className="w-4 h-4 text-emerald-400" />
+                    <p className="text-emerald-400 text-sm font-semibold">
+                      Última atualização: {ratesData.lastUpdate}
+                    </p>
+                  </div>
+                  <p className="text-slate-300 text-xs mb-2">
+                    <strong>Atualização automática:</strong> Selic e CDI (diário), IPCA (mensal)
+                  </p>
+                  <div className="grid md:grid-cols-3 gap-2 text-xs text-slate-400">
+                    <div><strong>Selic:</strong> {(ratesData.selic * 100).toFixed(2)}% a.a.</div>
+                    <div><strong>CDI:</strong> {(ratesData.cdi * 100).toFixed(2)}% a.a.</div>
+                    <div><strong>IPCA (12m):</strong> {(ratesData.ipca * 100).toFixed(2)}%</div>
+                  </div>
+                  <p className="text-slate-500 text-xs mt-3">
+                    <strong>Fontes:</strong> API BCB (SGS-11, SGS-12, SGS-433)
+                  </p>
+                </div>
+              )}
+              
               <p className="text-slate-500 text-xs">
-                Rentabilidade passada não garante resultados futuros. Consulte um profissional antes de investir.
+                Valores para fins educacionais. Rentabilidade passada não garante resultados futuros.
               </p>
             </div>
           </CardContent>
