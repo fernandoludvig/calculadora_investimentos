@@ -153,13 +153,13 @@ export default function InvestmentCalculator() {
 
       console.log('📊 Dados brutos:', { selicData, cdiData, ipcaData: ipcaData.slice(0, 3) });
 
-      // Processar Selic (já vem anualizada em %)
+      // Processar Selic (vem em % anual, converter para decimal)
       const selicAnual = parseFloat(selicData[0]?.valor) / 100;
-      console.log('🎯 Selic processada:', selicAnual);
+      console.log('🎯 Selic processada:', selicAnual, 'de', selicData[0]?.valor);
       
-      // Processar CDI (já vem anualizado em %)
+      // Processar CDI (vem em % anual, converter para decimal)
       const cdiAnual = parseFloat(cdiData[0]?.valor) / 100;
-      console.log('🎯 CDI processado:', cdiAnual);
+      console.log('🎯 CDI processado:', cdiAnual, 'de', cdiData[0]?.valor);
       
       // IPCA acumulado dos últimos 12 meses
       const ipcaAcumulado = ipcaData.reduce((acc: number, item: any) => {
@@ -199,6 +199,11 @@ export default function InvestmentCalculator() {
         cdi: `${(cdiAnual * 100).toFixed(2)}%`,
         ipca: `${(ipcaAcumulado * 100).toFixed(2)}%`
       });
+      
+      // Verificar se o estado foi atualizado
+      setTimeout(() => {
+        console.log('🔍 Estado atual após 1s:', ratesData);
+      }, 1000);
       
     } catch (error) {
       console.error('❌ Erro ao buscar taxas:', error);
@@ -885,6 +890,10 @@ export default function InvestmentCalculator() {
                     {(investments.cdb.rate * 100).toFixed(2)}% a.a.
                   </div>
                 </div>
+              </div>
+              {/* Debug info */}
+              <div className="mt-2 text-xs text-slate-500 text-center">
+                Debug: Selic={ratesData.selic}, CDI={ratesData.cdi}, IPCA={ratesData.ipca}
               </div>
             </CardContent>
           </Card>
