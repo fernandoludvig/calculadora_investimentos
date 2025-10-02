@@ -199,11 +199,6 @@ export default function InvestmentCalculator() {
         ipca: `${(ipcaAcumulado * 100).toFixed(2)}%`
       });
       
-      // Verificar se o estado foi atualizado
-      setTimeout(() => {
-        console.log('🔍 Estado atual após 1s:', ratesData);
-      }, 1000);
-      
     } catch (error) {
       console.error('❌ Erro ao buscar taxas:', error);
       setRatesError(true);
@@ -373,11 +368,22 @@ export default function InvestmentCalculator() {
     const loadRates = async () => {
       console.log('🚀 Iniciando carregamento das taxas...');
       
-      // Limpar cache para forçar atualização
-      localStorage.removeItem('investmentRates');
-      console.log('🗑️ Cache limpo, forçando atualização...');
+      // Verificar cache primeiro
+      const cached = localStorage.getItem('investmentRates');
+      if (cached) {
+        try {
+          const cacheData = JSON.parse(cached);
+          if (!shouldUpdate(cacheData.timestamp)) {
+            console.log('📦 Usando cache válido');
+            setRatesData(cacheData);
+            setLoadingRates(false);
+            return;
+          }
+        } catch (error) {
+          console.log('❌ Cache inválido, buscando novas taxas');
+        }
+      }
       
-      // Buscar dados novos sempre
       await fetchRealRates();
     };
 
