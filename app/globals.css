@@ -142,11 +142,17 @@
     border-color: #fecaca !important;
   }
   
-  /* Manter cores de destaque */
-  .light .bg-emerald-600,
-  .light .bg-blue-600,
+  /* Ajustar cores verdes APENAS no tema claro para melhor legibilidade */
   .light .text-emerald-400,
-  .light .text-blue-400 {
-    /* Manter cores originais para botões e destaques */
+  .light .text-emerald-500,
+  .light .text-green-400,
+  .light .text-green-500 {
+    color: #059669 !important; /* Verde mais escuro para melhor contraste no tema claro */
+  }
+  
+  /* Manter botões com cores originais */
+  .light .bg-emerald-600,
+  .light .bg-blue-600 {
+    /* Manter cores originais dos botões */
   }
 }

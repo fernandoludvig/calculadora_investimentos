@@ -1458,7 +1458,12 @@ export default function InvestmentCalculator() {
                           formatter={(value: number | string) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
                           labelFormatter={(label) => `Mês ${label}`}
                         />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{ 
+                            paddingTop: '20px',
+                            fontSize: '14px'
+                          }} 
+                        />
                         <Area 
                           type="monotone" 
                           dataKey="scenario1" 
@@ -1515,7 +1520,12 @@ export default function InvestmentCalculator() {
                           formatter={(value: number | string) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
                           labelFormatter={(label) => `Mês ${label}`}
                         />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{ 
+                            paddingTop: '20px',
+                            fontSize: '14px'
+                          }} 
+                        />
                         {Object.entries(investments).map(([key, inv]) => (
                           <Line
                             key={key}
