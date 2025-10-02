@@ -372,27 +372,13 @@ export default function InvestmentCalculator() {
   // Carregar taxas ao montar o componente
   useEffect(() => {
     const loadRates = async () => {
-      // Verificar cache
-      const cached = localStorage.getItem('investmentRates');
+      console.log('🚀 Iniciando carregamento das taxas...');
       
-      if (cached) {
-        const cacheData = JSON.parse(cached);
-        
-        // Verificar se cache ainda é válido
-        if (!shouldUpdate(cacheData.timestamp)) {
-          setRatesData({
-            selic: cacheData.selic,
-            cdi: cacheData.cdi,
-            ipca: cacheData.ipca,
-            lastUpdate: cacheData.lastUpdate,
-            timestamp: cacheData.timestamp
-          });
-          setLoadingRates(false);
-          return;
-        }
-      }
+      // Limpar cache para forçar atualização
+      localStorage.removeItem('investmentRates');
+      console.log('🗑️ Cache limpo, forçando atualização...');
       
-      // Buscar dados novos
+      // Buscar dados novos sempre
       await fetchRealRates();
     };
 
