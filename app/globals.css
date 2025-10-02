@@ -85,4 +85,29 @@
   body {
     @apply bg-gradient-to-br from-slate-950 to-slate-900 text-foreground min-h-screen;
   }
+  
+  /* Light mode styles */
+  .light body {
+    @apply bg-gradient-to-br from-slate-50 to-slate-100 text-slate-900;
+  }
+  
+  .light .card {
+    @apply bg-white/90 border-slate-200;
+  }
+  
+  .light .bg-slate-900 {
+    @apply bg-slate-100;
+  }
+  
+  .light .text-white {
+    @apply text-slate-900;
+  }
+  
+  .light .text-slate-400 {
+    @apply text-slate-600;
+  }
+  
+  .light .border-slate-800 {
+    @apply border-slate-200;
+  }
 }

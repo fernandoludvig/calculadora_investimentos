@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
+import html2canvas from 'html2canvas';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -10,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from 'recharts';
-import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, RefreshCw, Wifi, WifiOff, FileText, Table, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, RefreshCw, Wifi, WifiOff, FileText, Table, FileSpreadsheet, Sun, Moon, Image, Users, Link } from 'lucide-react';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
@@ -65,6 +67,9 @@ export default function InvestmentCalculator() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [simulationHistory, setSimulationHistory] = useState<any[]>([]);
+  const [isOnline, setIsOnline] = useState(true);
+  const { theme, setTheme } = useTheme();
   
   const [compareMode, setCompareMode] = useState(false);
   const [scenario2, setScenario2] = useState({
@@ -446,6 +451,70 @@ export default function InvestmentCalculator() {
     }
   };
 
+  // Salvar simulação no histórico
+  const saveSimulation = () => {
+    const simulation = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      investment: selectedInvestment,
+      initialAmount,
+      monthlyDeposit,
+      years,
+      finalValue: calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate),
+      profit: calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate) - (initialAmount + monthlyDeposit * 12 * years)
+    };
+    
+    const newHistory = [simulation, ...simulationHistory].slice(0, 10);
+    setSimulationHistory(newHistory);
+    localStorage.setItem('simulationHistory', JSON.stringify(newHistory));
+    toast.success('Simulação salva no histórico!');
+  };
+
+  // Carregar simulação do histórico
+  const loadSimulation = (sim: any) => {
+    setSelectedInvestment(sim.investment);
+    setInitialAmount(sim.initialAmount);
+    setMonthlyDeposit(sim.monthlyDeposit);
+    setYears(sim.years);
+    toast.success('Simulação carregada!');
+  };
+
+  // Gerar imagem para redes sociais
+  const generateShareImage = async () => {
+    try {
+      const element = document.getElementById('share-content');
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, {
+        backgroundColor: theme === 'light' ? '#ffffff' : '#0f172a',
+        scale: 2
+      });
+      
+      const link = document.createElement('a');
+      link.download = `calculadora-investimentos-${Date.now()}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+      
+      toast.success('Imagem gerada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao gerar imagem');
+    }
+  };
+
+  // Gerar link de compartilhamento
+  const generateShareLink = () => {
+    const params = new URLSearchParams({
+      investment: selectedInvestment,
+      initial: initialAmount.toString(),
+      monthly: monthlyDeposit.toString(),
+      years: years.toString()
+    });
+    
+    const url = `${window.location.origin}?${params.toString()}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copiado para compartilhar!');
+  };
+
   useEffect(() => {
     if (delayMonths > 0) {
       const onTime = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
@@ -471,6 +540,51 @@ export default function InvestmentCalculator() {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [showExportMenu]);
+
+  // Carregar histórico de simulações
+  useEffect(() => {
+    const saved = localStorage.getItem('simulationHistory');
+    if (saved) {
+      setSimulationHistory(JSON.parse(saved));
+    }
+  }, []);
+
+  // Detectar online/offline
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    setIsOnline(navigator.onLine);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Service Worker para cache offline
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('Service Worker registrado'))
+        .catch(() => console.log('Erro ao registrar Service Worker'));
+    }
+  }, []);
+
+  // Carregar parâmetros de URL para compartilhamento
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('investment')) {
+      setSelectedInvestment(params.get('investment')!);
+      setInitialAmount(Number(params.get('initial')) || 1000);
+      setMonthlyDeposit(Number(params.get('monthly')) || 300);
+      setYears(Number(params.get('years')) || 5);
+      toast.success('Simulação carregada do link!');
+    }
+  }, []);
 
   const finalAmount = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
   const totalInvested = initialAmount + (monthlyDeposit * years * 12);
@@ -498,29 +612,9 @@ export default function InvestmentCalculator() {
     return accumulated >= goalValue ? months : null;
   };
 
-  const saveSimulation = () => {
-    const simulation: Simulation = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString('pt-BR'),
-      initialAmount,
-      monthlyDeposit,
-      years,
-      investment: selectedInvestment,
-      finalAmount,
-      profit
-    };
-    setSavedSimulations([simulation, ...savedSimulations].slice(0, 10));
-  };
-
-  const loadSimulation = (sim: Simulation) => {
-    setInitialAmount(sim.initialAmount);
-    setMonthlyDeposit(sim.monthlyDeposit);
-    setYears(sim.years);
-    setSelectedInvestment(sim.investment);
-  };
-
   const deleteSimulation = (id: number) => {
-    setSavedSimulations(savedSimulations.filter(sim => sim.id !== id));
+    setSimulationHistory(simulationHistory.filter(sim => sim.id !== id));
+    localStorage.setItem('simulationHistory', JSON.stringify(simulationHistory.filter(sim => sim.id !== id)));
   };
 
   const shareResults = () => {
@@ -834,6 +928,30 @@ export default function InvestmentCalculator() {
             >
               <History className="w-4 h-4" />
               Salvar
+            </button>
+
+            <button
+              onClick={generateShareImage}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+            >
+              <Image className="w-4 h-4" />
+              Gerar Imagem
+            </button>
+
+            <button
+              onClick={generateShareLink}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+            >
+              <Link className="w-4 h-4" />
+              Link
+            </button>
+
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'dark' ? 'Claro' : 'Escuro'}
             </button>
 
             <div className="relative">
@@ -1597,6 +1715,88 @@ export default function InvestmentCalculator() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Histórico de Simulações */}
+        {simulationHistory.length > 0 && (
+          <Card className="bg-slate-900/30 border-slate-800/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <History className="w-5 h-5" />
+                Histórico de Simulações
+              </CardTitle>
+              <CardDescription>
+                Suas últimas {simulationHistory.length} simulações salvas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {simulationHistory.map((sim) => (
+                  <div
+                    key={sim.id}
+                    onClick={() => loadSimulation(sim)}
+                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-white">
+                          {investments[sim.investment as keyof typeof investments].name}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          {new Date(sim.timestamp).toLocaleDateString('pt-BR')} • {sim.years} anos
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          R$ {sim.initialAmount.toLocaleString('pt-BR')} + R$ {sim.monthlyDeposit.toLocaleString('pt-BR')}/mês
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-emerald-400 font-bold">
+                          R$ {sim.finalValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          +R$ {sim.profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Status Online/Offline */}
+        <Card className="bg-slate-900/30 border-slate-800/50 backdrop-blur">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-center gap-2">
+              {isOnline ? (
+                <>
+                  <Wifi className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-400 text-sm">Online - Taxas atualizadas</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4 text-yellow-400" />
+                  <span className="text-yellow-400 text-sm">Offline - Modo cache</span>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Conteúdo para compartilhamento (oculto) */}
+        <div id="share-content" className="hidden">
+          <div className="bg-gradient-to-br from-slate-950 to-slate-900 text-white p-8 rounded-lg">
+            <h2 className="text-3xl font-bold mb-4">O Preço de Esperar</h2>
+            <div className="space-y-2">
+              <p><strong>Investimento:</strong> {investments[selectedInvestment as keyof typeof investments].name}</p>
+              <p><strong>Valor Inicial:</strong> R$ {initialAmount.toLocaleString('pt-BR')}</p>
+              <p><strong>Depósito Mensal:</strong> R$ {monthlyDeposit.toLocaleString('pt-BR')}</p>
+              <p><strong>Período:</strong> {years} anos</p>
+              <p><strong>Valor Final:</strong> R$ {finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+              <p><strong>Lucro:</strong> R$ {profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+          </div>
+        </div>
 
       </div>
     </div>
