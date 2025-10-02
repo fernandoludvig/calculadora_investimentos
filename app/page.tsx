@@ -271,7 +271,7 @@ export default function InvestmentCalculator() {
         name: 'CDB 115% CDI', 
         rate: baseRates.cdi * 1.15,
         color: '#10b981',
-        description: `CDI ${(baseRates.cdi * 100).toFixed(2)}% × 1,15`
+        description: `CDI ${(baseRates.cdi * 100).toFixed(2)}% × 1,15 = ${((baseRates.cdi * 1.15) * 100).toFixed(2)}%`
       },
       tesouroDireto: { 
         name: 'Tesouro Selic', 
@@ -481,7 +481,7 @@ export default function InvestmentCalculator() {
   // Gerar imagem para redes sociais
   const generateShareImage = async () => {
     try {
-      // Criar canvas diretamente sem html2canvas
+      // Criar canvas com design profissional
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
@@ -493,76 +493,122 @@ export default function InvestmentCalculator() {
       canvas.width = 800;
       canvas.height = 600;
       
-      // Definir cores baseadas no tema
-      const bgColor = theme === 'light' ? '#ffffff' : '#0f172a';
-      const textColor = theme === 'light' ? '#000000' : '#ffffff';
-      const cardBg = theme === 'light' ? '#f8f9fa' : '#1e293b';
-      
-      // Preencher fundo
-      ctx.fillStyle = bgColor;
+      // Gradiente de fundo
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, '#0f172a');
+      gradient.addColorStop(1, '#1e293b');
+      ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Configurar fonte
-      ctx.font = 'bold 36px Arial, sans-serif';
-      ctx.fillStyle = textColor;
+      // Logo/Header
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 32px Arial, sans-serif';
       ctx.textAlign = 'center';
+      ctx.fillText('💰 O Preço de Esperar', canvas.width / 2, 50);
       
-      // Título
-      ctx.fillText('O Preço de Esperar', canvas.width / 2, 80);
+      ctx.font = '16px Arial, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('Calculadora de Investimentos', canvas.width / 2, 75);
       
-      // Subtítulo
-      ctx.font = '18px Arial, sans-serif';
-      ctx.fillStyle = '#666666';
-      ctx.fillText('Calculadora de Investimentos', canvas.width / 2, 110);
-      
-      // Card de informações
-      const cardX = 50;
-      const cardY = 150;
-      const cardWidth = canvas.width - 100;
-      const cardHeight = 350;
+      // Card principal com bordas arredondadas simuladas
+      const cardX = 60;
+      const cardY = 120;
+      const cardWidth = canvas.width - 120;
+      const cardHeight = 280;
       
       // Fundo do card
-      ctx.fillStyle = cardBg;
-      // Desenhar retângulo simples
+      ctx.fillStyle = '#1e293b';
       ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
       
-      // Texto do card
-      ctx.fillStyle = textColor;
-      ctx.font = 'bold 20px Arial, sans-serif';
+      // Borda do card
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
+      
+      // Ícone do investimento
+      const investmentEmojis: Record<string, string> = {
+        poupanca: '🏦',
+        cdb: '💳',
+        tesouroDireto: '🏛️',
+        tesouroIPCA: '📈',
+        acoes: '📊',
+        fundos: '🎯'
+      };
+      
+      const investmentEmoji = investmentEmojis[selectedInvestment] || '💰';
+      ctx.font = '48px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
       ctx.textAlign = 'left';
+      ctx.fillText(investmentEmoji, cardX + 30, cardY + 60);
       
-      const info = [
-        `Investimento: ${investments[selectedInvestment as keyof typeof investments].name}`,
-        `Valor Inicial: R$ ${initialAmount.toLocaleString('pt-BR')}`,
-        `Depósito Mensal: R$ ${monthlyDeposit.toLocaleString('pt-BR')}`,
-        `Período: ${years} anos`,
-        '',
-        `Valor Final: R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`,
-        `Lucro: R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-      ];
+      // Nome do investimento
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(investments[selectedInvestment as keyof typeof investments].name, cardX + 100, cardY + 60);
       
-      let y = cardY + 50;
-      info.forEach((line, index) => {
-        if (index === 5 || index === 6) {
-          ctx.fillStyle = '#10b981'; // Verde para resultados
-          ctx.font = index === 5 ? 'bold 24px Arial, sans-serif' : 'bold 20px Arial, sans-serif';
-        } else {
-          ctx.fillStyle = textColor;
-          ctx.font = '16px Arial, sans-serif';
-        }
-        ctx.fillText(line, cardX + 30, y);
-        y += index === 4 ? 20 : 35; // Espaço extra após período
-      });
+      // Taxa do investimento
+      ctx.font = '18px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`${(investments[selectedInvestment as keyof typeof investments].rate * 100).toFixed(2)}% a.a.`, cardX + 100, cardY + 85);
+      
+      // Parâmetros
+      ctx.font = '16px Arial, sans-serif';
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(`R$ ${initialAmount.toLocaleString('pt-BR')} + R$ ${monthlyDeposit.toLocaleString('pt-BR')}/mês × ${years} anos`, cardX + 30, cardY + 130);
+      
+      // Linha separadora
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 30, cardY + 150);
+      ctx.lineTo(cardX + cardWidth - 30, cardY + 150);
+      ctx.stroke();
+      
+      // Resultados destacados
+      ctx.font = 'bold 28px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`Valor Final: R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, cardX + 30, cardY + 200);
+      
+      ctx.font = 'bold 22px Arial, sans-serif';
+      ctx.fillText(`Lucro: R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, cardX + 30, cardY + 235);
+      
+      // Mini gráfico simulado
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      const graphX = cardX + cardWidth - 150;
+      const graphY = cardY + 180;
+      const graphWidth = 120;
+      const graphHeight = 60;
+      
+      // Linha crescente
+      ctx.moveTo(graphX, graphY + graphHeight);
+      ctx.lineTo(graphX + graphWidth * 0.3, graphY + graphHeight * 0.7);
+      ctx.lineTo(graphX + graphWidth * 0.6, graphY + graphHeight * 0.4);
+      ctx.lineTo(graphX + graphWidth, graphY + graphHeight * 0.2);
+      ctx.stroke();
+      
+      // QR Code simulado
+      const qrX = cardX + 30;
+      const qrY = cardY + cardHeight + 20;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(qrX, qrY, 60, 60);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(qrX + 5, qrY + 5, 50, 50);
+      
+      // URL do site
+      ctx.font = '14px Arial, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.textAlign = 'left';
+      ctx.fillText('calculadora-investimentos.com', qrX + 80, qrY + 35);
       
       // Rodapé
-      ctx.fillStyle = '#666666';
-      ctx.font = '14px Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Gerado em: ' + new Date().toLocaleDateString('pt-BR'), canvas.width / 2, canvas.height - 30);
+      ctx.fillText(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, canvas.width / 2, canvas.height - 20);
       
       // Download da imagem
       const link = document.createElement('a');
-      link.download = `calculadora-investimentos-${Date.now()}.png`;
+      link.download = `preco-de-esperar-${Date.now()}.png`;
       link.href = canvas.toDataURL();
       link.click();
       
@@ -973,10 +1019,10 @@ export default function InvestmentCalculator() {
             </button>
           </div>
           
-          <div className="flex flex-wrap justify-center gap-3 pt-4">
+          <div className="flex flex-wrap justify-center gap-2 pt-4 max-w-full overflow-x-auto pb-2">
             <button
               onClick={() => setCompareMode(!compareMode)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+              className={`flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 rounded-lg font-semibold transition-all text-sm md:text-base ${
                 compareMode 
                   ? 'bg-blue-600 text-white hover:bg-blue-700' 
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -988,7 +1034,7 @@ export default function InvestmentCalculator() {
             
             <button
               onClick={shareResults}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+              className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all text-sm md:text-base"
             >
               {copied ? <Check className="w-4 h-4 text-green-400" /> : <Share2 className="w-4 h-4" />}
               {copied ? 'Copiado!' : 'Copiar Texto'}
@@ -996,7 +1042,7 @@ export default function InvestmentCalculator() {
 
             <button
               onClick={saveSimulation}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+              className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all text-sm md:text-base"
             >
               <History className="w-4 h-4" />
               Salvar
@@ -1004,7 +1050,7 @@ export default function InvestmentCalculator() {
 
             <button
               onClick={generateShareImage}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+              className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all text-sm md:text-base"
             >
               <ImageIcon className="w-4 h-4" />
               Gerar Imagem
@@ -1012,7 +1058,7 @@ export default function InvestmentCalculator() {
 
             <button
               onClick={generateShareLink}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+              className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all text-sm md:text-base"
             >
               <Link className="w-4 h-4" />
               Copiar Link
@@ -1020,7 +1066,7 @@ export default function InvestmentCalculator() {
 
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+              className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all text-sm md:text-base"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               {theme === 'dark' ? 'Claro' : 'Escuro'}
@@ -1029,7 +1075,7 @@ export default function InvestmentCalculator() {
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all text-sm md:text-base"
               >
                 <Download className="w-4 h-4" />
                 Exportar
@@ -1803,7 +1849,7 @@ export default function InvestmentCalculator() {
                 Histórico de Simulações
               </CardTitle>
               <CardDescription>
-                Suas últimas {simulationHistory.length} simulações salvas
+                {simulationHistory.length} de 10 simulações salvas
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1811,11 +1857,13 @@ export default function InvestmentCalculator() {
                 {simulationHistory.map((sim) => (
                   <div
                     key={sim.id}
-                    onClick={() => loadSimulation(sim)}
-                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors group"
+                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors group"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div 
+                        onClick={() => loadSimulation(sim)}
+                        className="flex-1 cursor-pointer"
+                      >
                         <div className="font-semibold text-white">
                           {investments[sim.investment as keyof typeof investments].name}
                         </div>
@@ -1833,6 +1881,22 @@ export default function InvestmentCalculator() {
                         <div className="text-xs text-slate-400">
                           +R$ {sim.profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                         </div>
+                      </div>
+                      <div className="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => loadSimulation(sim)}
+                          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                          title="Carregar simulação"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteSimulation(sim.id)}
+                          className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                          title="Deletar simulação"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
