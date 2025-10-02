@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -62,6 +62,7 @@ export default function InvestmentCalculator() {
   const [loadingRates, setLoadingRates] = useState(true);
   const [ratesError, setRatesError] = useState(false);
   const ratesLoadedRef = useRef(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   
@@ -114,13 +115,13 @@ export default function InvestmentCalculator() {
   };
 
   // Taxas fallback (caso API falhe)
-  const fallbackRates: RateData = {
+  const fallbackRates: RateData = useMemo(() => ({
     selic: 0.15,      // 15.00% a.a.
     cdi: 0.149,       // 14.90% a.a.
     ipca: 0.0513,     // 5.13% (12 meses)
     lastUpdate: 'Estimativa (API indisponível)',
     timestamp: Date.now()
-  };
+  }), []);
 
   // Buscar taxas reais do Banco Central
   const fetchRealRates = useCallback(async () => {
@@ -393,7 +394,7 @@ export default function InvestmentCalculator() {
             setLoadingRates(false);
             return;
           }
-        } catch (error) {
+        } catch {
           console.log('❌ Cache inválido, buscando novas taxas');
         }
       }
@@ -415,10 +416,11 @@ export default function InvestmentCalculator() {
     }, 60 * 60 * 1000); // Verificar a cada hora
 
     return () => clearInterval(interval);
-  }, []); // Array vazio para executar apenas uma vez
+  }, [fetchRealRates]); // Adicionar fetchRealRates como dependência
 
   // PWA Install
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
