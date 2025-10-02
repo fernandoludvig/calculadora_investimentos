@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from 'recharts';
-import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, RefreshCw, Wifi, WifiOff, FileText, Table, FileSpreadsheet, Sun, Moon, Image, Users, Link } from 'lucide-react';
+import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, RefreshCw, Wifi, WifiOff, FileText, Table, FileSpreadsheet, Sun, Moon, Image as ImageIcon, Link } from 'lucide-react';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
@@ -67,7 +67,7 @@ export default function InvestmentCalculator() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
-  const [simulationHistory, setSimulationHistory] = useState<any[]>([]);
+  const [simulationHistory, setSimulationHistory] = useState<Simulation[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const { theme, setTheme } = useTheme();
   
@@ -79,7 +79,6 @@ export default function InvestmentCalculator() {
     investment: 'poupanca'
   });
 
-  const [savedSimulations, setSavedSimulations] = useState<Simulation[]>([]);
 
   const [customGoals, setCustomGoals] = useState<Goal[]>([
     { id: 1, name: 'iPhone 16 Pro', value: 8000, emoji: '📱' },
@@ -453,14 +452,14 @@ export default function InvestmentCalculator() {
 
   // Salvar simulação no histórico
   const saveSimulation = () => {
-    const simulation = {
+    const simulation: Simulation = {
       id: Date.now(),
-      timestamp: new Date().toISOString(),
+      date: new Date().toLocaleDateString('pt-BR'),
       investment: selectedInvestment,
       initialAmount,
       monthlyDeposit,
       years,
-      finalValue: calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate),
+      finalAmount: calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate),
       profit: calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate) - (initialAmount + monthlyDeposit * 12 * years)
     };
     
@@ -471,7 +470,7 @@ export default function InvestmentCalculator() {
   };
 
   // Carregar simulação do histórico
-  const loadSimulation = (sim: any) => {
+  const loadSimulation = (sim: Simulation) => {
     setSelectedInvestment(sim.investment);
     setInitialAmount(sim.initialAmount);
     setMonthlyDeposit(sim.monthlyDeposit);
@@ -496,7 +495,7 @@ export default function InvestmentCalculator() {
       link.click();
       
       toast.success('Imagem gerada com sucesso!');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao gerar imagem');
     }
   };
@@ -646,7 +645,7 @@ export default function InvestmentCalculator() {
         },
         chartData: generateComparisonChartData(),
         goals: customGoals,
-        savedSimulations
+        simulationHistory
       };
       
       const jsonString = JSON.stringify(data, null, 2);
@@ -934,7 +933,7 @@ export default function InvestmentCalculator() {
               onClick={generateShareImage}
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
             >
-              <Image className="w-4 h-4" />
+              <ImageIcon className="w-4 h-4" />
               Gerar Imagem
             </button>
 
@@ -1625,7 +1624,7 @@ export default function InvestmentCalculator() {
               </Card>
             )}
 
-            {savedSimulations.length > 0 && (
+            {simulationHistory.length > 0 && (
               <Card className="bg-slate-900/50 border-slate-800 backdrop-blur">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
@@ -1638,7 +1637,7 @@ export default function InvestmentCalculator() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {savedSimulations.map((sim) => (
+                    {simulationHistory.map((sim: Simulation) => (
                       <div 
                         key={sim.id}
                         className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-all"
@@ -1742,7 +1741,7 @@ export default function InvestmentCalculator() {
                           {investments[sim.investment as keyof typeof investments].name}
                         </div>
                         <div className="text-sm text-slate-400">
-                          {new Date(sim.timestamp).toLocaleDateString('pt-BR')} • {sim.years} anos
+                          {sim.date} • {sim.years} anos
                         </div>
                         <div className="text-xs text-slate-500">
                           R$ {sim.initialAmount.toLocaleString('pt-BR')} + R$ {sim.monthlyDeposit.toLocaleString('pt-BR')}/mês
@@ -1750,7 +1749,7 @@ export default function InvestmentCalculator() {
                       </div>
                       <div className="text-right">
                         <div className="text-emerald-400 font-bold">
-                          R$ {sim.finalValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                          R$ {sim.finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                         </div>
                         <div className="text-xs text-slate-400">
                           +R$ {sim.profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
