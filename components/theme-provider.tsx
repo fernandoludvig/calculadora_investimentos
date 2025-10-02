@@ -12,5 +12,6 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <NextThemesProvider {...(props as any)}>{children}</NextThemesProvider>
 }
