@@ -920,14 +920,14 @@ export default function InvestmentCalculator() {
   const allInvestmentsData = generateAllInvestmentsData();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
+    <div className={`min-h-screen p-4 md:p-8 ${theme === 'light' ? 'bg-gradient-to-br from-white to-gray-100 text-gray-900' : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white'}`}>
       <div className="max-w-7xl mx-auto space-y-6">
         
         <div className="text-center space-y-4 py-8">
-          <h1 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
+          <h1 className={`text-5xl md:text-6xl font-bold tracking-tight ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
             O Preço de <span className="text-red-500">Esperar</span>
           </h1>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+          <p className={`text-lg max-w-2xl mx-auto ${theme === 'light' ? 'text-gray-600' : 'text-slate-400'}`}>
             Taxas atualizadas automaticamente via API do Banco Central
           </p>
 
