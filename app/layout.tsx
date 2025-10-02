@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,8 +14,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "O Preço de Esperar - Calculadora de Investimentos",
-  description: "Descubra quanto dinheiro você está perdendo por não começar a investir. Calculadora brasileira com análise de procrastinação e objetivos personalizados.",
+  title: "Calculadora de Investimentos - O Preço de Esperar",
+  description: "Simule investimentos com taxas reais do Banco Central atualizadas automaticamente. Descubra quanto dinheiro você está perdendo por não começar a investir hoje.",
+  keywords: "investimentos, calculadora, juros compostos, CDI, Selic, IPCA, tesouro direto, poupança, ações, fundos, Brasil",
+  authors: [{ name: "O Preço de Esperar" }],
+  creator: "O Preço de Esperar",
+  publisher: "O Preço de Esperar",
+  robots: "index, follow",
+  openGraph: {
+    title: "Calculadora de Investimentos - O Preço de Esperar",
+    description: "Simule investimentos com taxas reais do Banco Central. Descubra quanto dinheiro você está perdendo por não começar a investir hoje.",
+    type: "website",
+    locale: "pt_BR",
+    siteName: "O Preço de Esperar",
+    images: [
+      {
+        url: "/icon.svg",
+        width: 512,
+        height: 512,
+        alt: "Calculadora de Investimentos"
+      }
+    ]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Calculadora de Investimentos - O Preço de Esperar",
+    description: "Simule investimentos com taxas reais do Banco Central. Descubra quanto dinheiro você está perdendo por não começar a investir hoje.",
+    images: ["/icon.svg"]
+  },
   manifest: "/manifest.json",
   themeColor: "#10b981",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
@@ -22,6 +49,11 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Preço de Esperar"
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+    shortcut: "/icon.svg"
   }
 };
 
@@ -31,11 +63,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Toaster 
+          position="top-right" 
+          toastOptions={{
+            style: {
+              background: '#1e293b',
+              color: '#f8fafc',
+              border: '1px solid #334155'
+            }
+          }}
+        />
       </body>
     </html>
   );

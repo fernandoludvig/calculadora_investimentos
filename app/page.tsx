@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -61,6 +62,8 @@ export default function InvestmentCalculator() {
   const [loadingRates, setLoadingRates] = useState(true);
   const [ratesError, setRatesError] = useState(false);
   const ratesLoadedRef = useRef(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
   
   const [compareMode, setCompareMode] = useState(false);
   const [scenario2, setScenario2] = useState({
@@ -200,9 +203,16 @@ export default function InvestmentCalculator() {
         ipca: `${(ipcaAcumulado * 100).toFixed(2)}%`
       });
       
+      toast.success('Taxas atualizadas com sucesso!', {
+        description: `Selic: ${(selicAnual * 100).toFixed(2)}% | CDI: ${(cdiAnual * 100).toFixed(2)}% | IPCA: ${(ipcaAcumulado * 100).toFixed(2)}%`
+      });
+      
     } catch (error) {
       console.error('❌ Erro ao buscar taxas:', error);
       setRatesError(true);
+      toast.error('Erro ao atualizar taxas', {
+        description: 'Usando dados em cache ou estimativas'
+      });
       
       // Usar cache se disponível, senão usar fallback
       const cached = localStorage.getItem('investmentRates');
@@ -406,6 +416,33 @@ export default function InvestmentCalculator() {
 
     return () => clearInterval(interval);
   }, []); // Array vazio para executar apenas uma vez
+
+  // PWA Install
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        toast.success('App instalado com sucesso!');
+      }
+      setDeferredPrompt(null);
+      setShowInstallButton(false);
+    }
+  };
 
   useEffect(() => {
     if (delayMonths > 0) {
@@ -726,6 +763,19 @@ export default function InvestmentCalculator() {
             Taxas atualizadas automaticamente via API do Banco Central
           </p>
 
+          {/* Botão de instalação PWA */}
+          {showInstallButton && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleInstallClick}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                Instalar App
+              </button>
+            </div>
+          )}
+
           {/* Status das taxas */}
           <div className="flex items-center justify-center gap-3 flex-wrap">
             {loadingRates ? (
@@ -857,7 +907,20 @@ export default function InvestmentCalculator() {
         </div>
 
         {/* Banner com taxas atuais */}
-        {ratesData && !loadingRates && (
+        {loadingRates ? (
+          <Card className="bg-slate-900/50 border-slate-800">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i}>
+                    <div className="animate-pulse bg-slate-700 h-3 w-12 rounded mx-auto mb-2"></div>
+                    <div className="animate-pulse bg-slate-700 h-6 w-16 rounded mx-auto"></div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : ratesData && (
           <Card className="bg-slate-900/50 border-slate-800">
             <CardContent className="p-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
