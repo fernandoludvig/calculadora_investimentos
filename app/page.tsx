@@ -1,103 +1,1252 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from 'recharts';
+import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, FileText, Table, FileSpreadsheet } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
+
+interface Goal {
+  id: number;
+  name: string;
+  value: number;
+  emoji: string;
+}
+
+interface Simulation {
+  id: number;
+  date: string;
+  initialAmount: number;
+  monthlyDeposit: number;
+  years: number;
+  investment: string;
+  finalAmount: number;
+  profit: number;
+}
+
+export default function InvestmentCalculator() {
+  const [initialAmount, setInitialAmount] = useState(1000);
+  const [monthlyDeposit, setMonthlyDeposit] = useState(500);
+  const [years, setYears] = useState(5);
+  const [delayMonths, setDelayMonths] = useState(0);
+  const [selectedInvestment, setSelectedInvestment] = useState('cdb');
+  const [lostMoney, setLostMoney] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  
+  const [compareMode, setCompareMode] = useState(false);
+  const [scenario2, setScenario2] = useState({
+    initialAmount: 1000,
+    monthlyDeposit: 300,
+    years: 5,
+    investment: 'poupanca'
+  });
+
+  const [savedSimulations, setSavedSimulations] = useState<Simulation[]>([]);
+
+  const [customGoals, setCustomGoals] = useState<Goal[]>([
+    { id: 1, name: 'iPhone 16 Pro', value: 8000, emoji: '📱' },
+    { id: 2, name: 'Viagem Europa', value: 15000, emoji: '✈️' },
+    { id: 3, name: 'Moto Nova', value: 25000, emoji: '🏍️' },
+    { id: 4, name: 'Entrada Apê', value: 80000, emoji: '🏠' }
+  ]);
+  
+  const [newGoal, setNewGoal] = useState({
+    name: '',
+    value: '',
+    emoji: '🎯'
+  });
+
+  const [showGoalForm, setShowGoalForm] = useState(false);
+
+  const emojiOptions = [
+    '🎯', '💰', '🏠', '🚗', '🏍️', '✈️', '📱', '💻', '🎓', 
+    '💍', '🏖️', '🎸', '📷', '⌚', '🎮', '🏋️', '🎨', '📚'
+  ];
+
+  const addCustomGoal = () => {
+    if (newGoal.name && newGoal.value) {
+      const goal: Goal = {
+        id: Date.now(),
+        name: newGoal.name,
+        value: Number(newGoal.value),
+        emoji: newGoal.emoji
+      };
+      setCustomGoals([...customGoals, goal]);
+      setNewGoal({ name: '', value: '', emoji: '🎯' });
+      setShowGoalForm(false);
+    }
+  };
+
+  const removeGoal = (id: number) => {
+    setCustomGoals(customGoals.filter(goal => goal.id !== id));
+  };
+
+  const investments = {
+    poupanca: { 
+      name: 'Poupança', 
+      rate: 0.07, 
+      color: '#94a3b8',
+      description: 'Segura e líquida, mas menor rentabilidade'
+    },
+    cdb: { 
+      name: 'CDB 115% CDI', 
+      rate: 0.115, 
+      color: '#10b981',
+      description: 'Boa rentabilidade com segurança (FGC)'
+    },
+    tesouroDireto: { 
+      name: 'Tesouro Selic', 
+      rate: 0.12, 
+      color: '#3b82f6',
+      description: 'Baixíssimo risco, liquidez diária'
+    },
+    tesouroIPCA: { 
+      name: 'Tesouro IPCA+', 
+      rate: 0.135, 
+      color: '#8b5cf6',
+      description: 'Protege contra inflação + juros'
+    },
+    acoes: { 
+      name: 'Ações (Ibovespa)', 
+      rate: 0.15, 
+      color: '#f59e0b',
+      description: 'Alto potencial, maior volatilidade'
+    },
+    fundos: { 
+      name: 'Fundos Multimercado', 
+      rate: 0.13, 
+      color: '#ec4899',
+      description: 'Diversificação profissional'
+    }
+  };
+
+  const calculateInvestment = (initial: number, monthly: number, years: number, rate: number, delayMonths: number = 0) => {
+    const monthlyRate = rate / 12;
+    const effectiveMonths = years * 12 - delayMonths;
+    
+    if (effectiveMonths <= 0) return 0;
+    
+    const futureValueInitial = initial * Math.pow(1 + monthlyRate, effectiveMonths);
+    const futureValueMonthly = monthly * ((Math.pow(1 + monthlyRate, effectiveMonths) - 1) / monthlyRate);
+    
+    return futureValueInitial + futureValueMonthly;
+  };
+
+  const generateComparisonChartData = () => {
+    const data = [];
+    const maxMonths = Math.max(years * 12, scenario2.years * 12);
+    
+    for (let month = 0; month <= maxMonths; month++) {
+      const dataPoint: any = { month };
+      
+      if (month <= years * 12) {
+        const value = calculateInvestment(
+          initialAmount, 
+          monthlyDeposit, 
+          month / 12, 
+          investments[selectedInvestment as keyof typeof investments].rate
+        );
+        dataPoint.scenario1 = Math.round(value);
+      }
+      
+      if (compareMode && month <= scenario2.years * 12) {
+        const value = calculateInvestment(
+          scenario2.initialAmount, 
+          scenario2.monthlyDeposit, 
+          month / 12, 
+          investments[scenario2.investment as keyof typeof investments].rate
+        );
+        dataPoint.scenario2 = Math.round(value);
+      }
+      
+      if (!compareMode && delayMonths > 0 && month >= delayMonths) {
+        const delayed = calculateInvestment(
+          initialAmount, 
+          monthlyDeposit, 
+          (month - delayMonths) / 12, 
+          investments[selectedInvestment as keyof typeof investments].rate
+        );
+        dataPoint.delayed = Math.round(delayed);
+      }
+      
+      data.push(dataPoint);
+    }
+    
+    return data;
+  };
+
+  const generateAllInvestmentsData = () => {
+    const data = [];
+    
+    for (let month = 0; month <= years * 12; month++) {
+      const dataPoint: any = { month };
+      
+      Object.keys(investments).forEach(key => {
+        const value = calculateInvestment(
+          initialAmount, 
+          monthlyDeposit, 
+          month / 12, 
+          investments[key as keyof typeof investments].rate
+        );
+        dataPoint[key] = Math.round(value);
+      });
+      
+      data.push(dataPoint);
+    }
+    
+    return data;
+  };
+
+  useEffect(() => {
+    if (delayMonths > 0) {
+      const onTime = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
+      const delayed = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate, delayMonths);
+      setLostMoney(onTime - delayed);
+    } else {
+      setLostMoney(0);
+    }
+  }, [initialAmount, monthlyDeposit, years, delayMonths, selectedInvestment]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showExportMenu) {
+        setShowExportMenu(false);
+      }
+    };
+
+    if (showExportMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showExportMenu]);
+
+  const finalAmount = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
+  const totalInvested = initialAmount + (monthlyDeposit * years * 12);
+  const profit = finalAmount - totalInvested;
+
+  const finalAmount2 = compareMode ? calculateInvestment(
+    scenario2.initialAmount, 
+    scenario2.monthlyDeposit, 
+    scenario2.years, 
+    investments[scenario2.investment as keyof typeof investments].rate
+  ) : 0;
+  const totalInvested2 = compareMode ? scenario2.initialAmount + (scenario2.monthlyDeposit * scenario2.years * 12) : 0;
+  const profit2 = finalAmount2 - totalInvested2;
+
+  const calculateMonthsToGoal = (goalValue: number, initial: number, monthly: number, rate: number) => {
+    let months = 0;
+    const monthlyRate = rate / 12;
+    let accumulated = initial;
+    
+    while (accumulated < goalValue && months < 600) {
+      accumulated = accumulated * (1 + monthlyRate) + monthly;
+      months++;
+    }
+    
+    return accumulated >= goalValue ? months : null;
+  };
+
+  const saveSimulation = () => {
+    const simulation: Simulation = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString('pt-BR'),
+      initialAmount,
+      monthlyDeposit,
+      years,
+      investment: selectedInvestment,
+      finalAmount,
+      profit
+    };
+    setSavedSimulations([simulation, ...savedSimulations].slice(0, 10));
+  };
+
+  const loadSimulation = (sim: Simulation) => {
+    setInitialAmount(sim.initialAmount);
+    setMonthlyDeposit(sim.monthlyDeposit);
+    setYears(sim.years);
+    setSelectedInvestment(sim.investment);
+  };
+
+  const deleteSimulation = (id: number) => {
+    setSavedSimulations(savedSimulations.filter(sim => sim.id !== id));
+  };
+
+  const shareResults = () => {
+    const text = `💰 Simulação de Investimentos\n\n` +
+      `📊 ${investments[selectedInvestment as keyof typeof investments].name}\n` +
+      `💵 Investimento inicial: R$ ${initialAmount.toLocaleString('pt-BR')}\n` +
+      `📅 Aporte mensal: R$ ${monthlyDeposit.toLocaleString('pt-BR')}\n` +
+      `⏰ Período: ${years} anos\n\n` +
+      `🎯 Resultado: R$ ${finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` +
+      `💚 Lucro: R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const exportToJSON = () => {
+    try {
+      const data = {
+        simulation: {
+          date: new Date().toISOString(),
+          initialAmount,
+          monthlyDeposit,
+          years,
+          investment: selectedInvestment,
+          finalAmount,
+          totalInvested,
+          profit
+        },
+        chartData: generateComparisonChartData(),
+        goals: customGoals,
+        savedSimulations
+      };
+      
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `simulacao-investimento-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao exportar JSON:', error);
+      alert('Erro ao exportar dados. Tente novamente.');
+    }
+  };
+
+  const exportToCSV = () => {
+    try {
+      const chartData = generateComparisonChartData();
+      const csvData = [
+        ['Mês', 'Valor Acumulado', 'Valor com Atraso'],
+        ...chartData.map(point => [
+          point.month,
+          point.scenario1?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '',
+          point.delayed?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || ''
+        ])
+      ];
+
+      const csvContent = csvData.map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `simulacao-investimento-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error);
+      alert('Erro ao exportar CSV. Tente novamente.');
+    }
+  };
+
+  const exportToExcel = () => {
+    try {
+      const workbook = XLSX.utils.book_new();
+      
+      // Planilha 1: Dados da Simulação
+      const simulationData = [
+        ['Parâmetro', 'Valor'],
+        ['Data da Simulação', new Date().toLocaleDateString('pt-BR')],
+        ['Tipo de Investimento', investments[selectedInvestment as keyof typeof investments].name],
+        ['Taxa Anual', `${(investments[selectedInvestment as keyof typeof investments].rate * 100).toFixed(1)}%`],
+        ['Investimento Inicial', `R$ ${initialAmount.toLocaleString('pt-BR')}`],
+        ['Aporte Mensal', `R$ ${monthlyDeposit.toLocaleString('pt-BR')}`],
+        ['Período (anos)', years],
+        ['Total Investido', `R$ ${totalInvested.toLocaleString('pt-BR')}`],
+        ['Valor Final', `R$ ${finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+        ['Lucro', `R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+        ['Rentabilidade Total', `${((profit / totalInvested) * 100).toFixed(2)}%`]
+      ];
+      
+      const simulationSheet = XLSX.utils.aoa_to_sheet(simulationData);
+      XLSX.utils.book_append_sheet(workbook, simulationSheet, 'Simulação');
+
+      // Planilha 2: Evolução Mensal
+      const chartData = generateComparisonChartData();
+      const evolutionData = [
+        ['Mês', 'Valor Acumulado', 'Valor com Atraso'],
+        ...chartData.map(point => [
+          point.month,
+          point.scenario1 || 0,
+          point.delayed || 0
+        ])
+      ];
+      
+      const evolutionSheet = XLSX.utils.aoa_to_sheet(evolutionData);
+      XLSX.utils.book_append_sheet(workbook, evolutionSheet, 'Evolução');
+
+      // Planilha 3: Objetivos
+      if (customGoals.length > 0) {
+        const goalsData = [
+          ['Meta', 'Valor', 'Emoji', 'Tempo para Atingir'],
+          ...customGoals.map(goal => {
+            const months = calculateMonthsToGoal(goal.value, initialAmount, monthlyDeposit, investments[selectedInvestment as keyof typeof investments].rate);
+            return [
+              goal.name,
+              goal.value,
+              goal.emoji,
+              months ? `${Math.floor(months / 12)}a ${months % 12}m` : 'Não atingível'
+            ];
+          })
+        ];
+        
+        const goalsSheet = XLSX.utils.aoa_to_sheet(goalsData);
+        XLSX.utils.book_append_sheet(workbook, goalsSheet, 'Objetivos');
+      }
+
+      XLSX.writeFile(workbook, `simulacao-investimento-${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (error) {
+      console.error('Erro ao exportar Excel:', error);
+      alert('Erro ao exportar Excel. Tente novamente.');
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      // Título
+      pdf.setFontSize(20);
+      pdf.setTextColor(40, 40, 40);
+      pdf.text('O Preço de Esperar', 20, 20);
+      pdf.setFontSize(12);
+      pdf.text('Relatório de Simulação de Investimentos', 20, 30);
+      pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 40);
+
+      // Dados da simulação
+      pdf.setFontSize(14);
+      pdf.text('Dados da Simulação', 20, 55);
+      pdf.setFontSize(10);
+      
+      const simulationData = [
+        `Tipo de Investimento: ${investments[selectedInvestment as keyof typeof investments].name}`,
+        `Taxa Anual: ${(investments[selectedInvestment as keyof typeof investments].rate * 100).toFixed(1)}%`,
+        `Investimento Inicial: R$ ${initialAmount.toLocaleString('pt-BR')}`,
+        `Aporte Mensal: R$ ${monthlyDeposit.toLocaleString('pt-BR')}`,
+        `Período: ${years} anos`,
+        `Total Investido: R$ ${totalInvested.toLocaleString('pt-BR')}`,
+        `Valor Final: R$ ${finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        `Lucro: R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        `Rentabilidade Total: ${((profit / totalInvested) * 100).toFixed(2)}%`
+      ];
+
+      simulationData.forEach((line, index) => {
+        pdf.text(line, 20, 70 + (index * 5));
+      });
+
+      // Objetivos
+      if (customGoals.length > 0) {
+        pdf.setFontSize(14);
+        pdf.text('Objetivos', 20, 120);
+        pdf.setFontSize(10);
+        
+        let yPosition = 130;
+        customGoals.forEach((goal, index) => {
+          const months = calculateMonthsToGoal(goal.value, initialAmount, monthlyDeposit, investments[selectedInvestment as keyof typeof investments].rate);
+          const timeText = months ? `${Math.floor(months / 12)}a ${months % 12}m` : 'Não atingível';
+          const isAchievable = months !== null && months <= years * 12;
+          
+          // Nome do objetivo
+          pdf.setFontSize(11);
+          pdf.setTextColor(40, 40, 40);
+          pdf.text(`${goal.name}`, 20, yPosition);
+          
+          // Valor
+          pdf.setFontSize(10);
+          pdf.setTextColor(60, 60, 60);
+          pdf.text(`Valor: R$ ${goal.value.toLocaleString('pt-BR')}`, 20, yPosition + 4);
+          
+          // Tempo para atingir
+          pdf.setFontSize(10);
+          if (isAchievable) {
+            pdf.setTextColor(0, 150, 0); // Verde para atingível
+            pdf.text(`Tempo para atingir: ${timeText}`, 20, yPosition + 8);
+          } else {
+            pdf.setTextColor(150, 0, 0); // Vermelho para não atingível
+            pdf.text(`Meta não atingível no período de ${years} anos`, 20, yPosition + 8);
+          }
+          
+          // Linha separadora
+          if (index < customGoals.length - 1) {
+            pdf.setDrawColor(200, 200, 200);
+            pdf.line(20, yPosition + 12, 190, yPosition + 12);
+          }
+          
+          yPosition += 18;
+        });
+      }
+
+      // Disclaimer
+      const disclaimerY = customGoals.length > 0 ? 130 + (customGoals.length * 18) + 20 : 200;
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Este relatório é apenas para fins educacionais. Rentabilidade passada não garante resultados futuros.', 20, disclaimerY);
+      pdf.text('Consulte sempre um profissional qualificado antes de tomar decisões de investimento.', 20, disclaimerY + 5);
+
+      pdf.save(`simulacao-investimento-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Erro ao exportar PDF. Tente novamente.');
+    }
+  };
+
+  const chartData = generateComparisonChartData();
+  const allInvestmentsData = generateAllInvestmentsData();
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        <div className="text-center space-y-4 py-8">
+          <h1 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
+            O Preço de <span className="text-red-500">Esperar</span>
+          </h1>
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+            Descubra quanto dinheiro você está perdendo AGORA por não começar a investir
+          </p>
+          
+          <div className="flex flex-wrap justify-center gap-3 pt-4">
+            <button
+              onClick={() => setCompareMode(!compareMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+                compareMode 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <GitCompare className="w-4 h-4" />
+              {compareMode ? 'Modo Normal' : 'Comparar Cenários'}
+            </button>
+            
+            <button
+              onClick={shareResults}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-400" /> : <Share2 className="w-4 h-4" />}
+              {copied ? 'Copiado!' : 'Compartilhar'}
+            </button>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <button
+              onClick={saveSimulation}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+            >
+              <History className="w-4 h-4" />
+              Salvar
+            </button>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                Exportar
+              </button>
+              
+              {showExportMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
+                  <button
+                    onClick={() => {
+                      exportToPDF();
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700 transition-all first:rounded-t-lg"
+                  >
+                    <FileText className="w-4 h-4 text-red-400" />
+                    <div>
+                      <div className="font-medium">PDF</div>
+                      <div className="text-xs text-slate-400">Relatório completo</div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      exportToExcel();
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700 transition-all"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
+                    <div>
+                      <div className="font-medium">Excel</div>
+                      <div className="text-xs text-slate-400">Planilhas detalhadas</div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      exportToCSV();
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700 transition-all"
+                  >
+                    <Table className="w-4 h-4 text-blue-400" />
+                    <div>
+                      <div className="font-medium">CSV</div>
+                      <div className="text-xs text-slate-400">Dados tabulares</div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      exportToJSON();
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700 transition-all last:rounded-b-lg"
+                  >
+                    <Download className="w-4 h-4 text-yellow-400" />
+                    <div>
+                      <div className="font-medium">JSON</div>
+                      <div className="text-xs text-slate-400">Dados completos</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {delayMonths > 0 && !compareMode && (
+          <Alert className="bg-red-950/50 border-red-900">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertDescription className="text-lg">
+              💸 Você perderia <span className="font-bold text-red-500 text-2xl">
+                R$ {lostMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span> esperando {delayMonths} meses para começar!
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {compareMode && (
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card className="bg-gradient-to-br from-emerald-950/50 to-emerald-900/30 border-emerald-800/50">
+              <CardHeader>
+                <CardTitle className="text-emerald-400">Cenário 1</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-white mb-2">
+                  R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-emerald-400">
+                  Lucro: R$ {profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-blue-950/50 to-blue-900/30 border-blue-800/50">
+              <CardHeader>
+                <CardTitle className="text-blue-400">Cenário 2</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-white mb-2">
+                  R$ {finalAmount2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-blue-400">
+                  Lucro: R$ {profit2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="mt-4 pt-4 border-t border-blue-800/50">
+                  <div className="text-slate-300 text-sm">
+                    Diferença: <span className={`font-bold ${finalAmount > finalAmount2 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {finalAmount > finalAmount2 ? '+' : ''}
+                      R$ {Math.abs(finalAmount - finalAmount2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          
+          <Card className="lg:col-span-1 bg-slate-900/50 border-slate-800 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Zap className="w-5 h-5 text-yellow-500" />
+                {compareMode ? 'Cenário 1' : 'Sua Simulação'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              
+              <div className="space-y-2">
+                <Label className="text-slate-300">Tipo de Investimento</Label>
+                <select
+                  value={selectedInvestment}
+                  onChange={(e) => setSelectedInvestment(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  {Object.entries(investments).map(([key, inv]) => (
+                    <option key={key} value={key}>
+                      {inv.name} - {(inv.rate * 100).toFixed(1)}% a.a.
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400">
+                  {investments[selectedInvestment as keyof typeof investments].description}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-300">Investimento Inicial</Label>
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-mono">R$</span>
+                  <Input
+                    type="number"
+                    value={initialAmount}
+                    onChange={(e) => setInitialAmount(Number(e.target.value))}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-300">Aporte Mensal</Label>
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-mono">R$</span>
+                  <Input
+                    type="number"
+                    value={monthlyDeposit}
+                    onChange={(e) => setMonthlyDeposit(Number(e.target.value))}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <Label className="text-slate-300">Período</Label>
+                  <span className="text-white font-bold">{years} anos</span>
+                </div>
+                <Slider
+                  value={[years]}
+                  onValueChange={(value) => setYears(value[0])}
+                  min={1}
+                  max={30}
+                  step={1}
+                  className="cursor-pointer"
+                />
+              </div>
+
+              {!compareMode && (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Label className="text-slate-300 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Adiar início em
+                    </Label>
+                    <span className="text-red-400 font-bold">{delayMonths} meses</span>
+                  </div>
+                  <Slider
+                    value={[delayMonths]}
+                    onValueChange={(value) => setDelayMonths(value[0])}
+                    min={0}
+                    max={24}
+                    step={1}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Arraste para ver o impacto de procrastinar
+                  </p>
+                </div>
+              )}
+
+              <div className="bg-gradient-to-br from-emerald-950/50 to-emerald-900/20 p-4 rounded-lg border border-emerald-800/30 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Você investiu</span>
+                  <span className="text-white font-mono">
+                    R$ {totalInvested.toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-emerald-400 text-sm font-semibold">Você terá</span>
+                  <span className="text-emerald-400 font-mono text-xl font-bold">
+                    R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-emerald-800/30">
+                  <span className="text-emerald-300 text-sm">Lucro puro</span>
+                  <span className="text-emerald-300 font-mono font-bold">
+                    +R$ {profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+            </CardContent>
+          </Card>
+
+          {compareMode && (
+            <Card className="lg:col-span-1 bg-slate-900/50 border-slate-800 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <GitCompare className="w-5 h-5 text-blue-500" />
+                  Cenário 2
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                
+                <div className="space-y-2">
+                  <Label className="text-slate-300">Tipo de Investimento</Label>
+                  <select
+                    value={scenario2.investment}
+                    onChange={(e) => setScenario2({...scenario2, investment: e.target.value})}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(investments).map(([key, inv]) => (
+                      <option key={key} value={key}>
+                        {inv.name} - {(inv.rate * 100).toFixed(1)}% a.a.
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-slate-300">Investimento Inicial</Label>
+                  <div className="flex items-center gap-3">
+                    <span className="text-white font-mono">R$</span>
+                    <Input
+                      type="number"
+                      value={scenario2.initialAmount}
+                      onChange={(e) => setScenario2({...scenario2, initialAmount: Number(e.target.value)})}
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-slate-300">Aporte Mensal</Label>
+                  <div className="flex items-center gap-3">
+                    <span className="text-white font-mono">R$</span>
+                    <Input
+                      type="number"
+                      value={scenario2.monthlyDeposit}
+                      onChange={(e) => setScenario2({...scenario2, monthlyDeposit: Number(e.target.value)})}
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Label className="text-slate-300">Período</Label>
+                    <span className="text-white font-bold">{scenario2.years} anos</span>
+                  </div>
+                  <Slider
+                    value={[scenario2.years]}
+                    onValueChange={(value) => setScenario2({...scenario2, years: value[0]})}
+                    min={1}
+                    max={30}
+                    step={1}
+                    className="cursor-pointer"
+                  />
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-950/50 to-blue-900/20 p-4 rounded-lg border border-blue-800/30 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 text-sm">Você investiu</span>
+                    <span className="text-white font-mono">
+                      R$ {totalInvested2.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-blue-400 text-sm font-semibold">Você terá</span>
+                    <span className="text-blue-400 font-mono text-xl font-bold">
+                      R$ {finalAmount2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-blue-800/30">
+                    <span className="text-blue-300 text-sm">Lucro puro</span>
+                    <span className="text-blue-300 font-mono font-bold">
+                      +R$ {profit2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+              </CardContent>
+            </Card>
+          )}
+
+          <div className={compareMode ? "lg:col-span-1 space-y-6" : "lg:col-span-2 space-y-6"}>
+            
+            <Card className="bg-slate-900/50 border-slate-800 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  Análise Gráfica
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="evolution" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+                    <TabsTrigger value="evolution">
+                      {compareMode ? 'Comparação' : 'Evolução'}
+                    </TabsTrigger>
+                    <TabsTrigger value="all">Todos Investimentos</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="evolution" className="mt-4">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorScenario1" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorScenario2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorDelayed" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis 
+                          dataKey="month" 
+                          stroke="#94a3b8"
+                          label={{ value: 'Meses', position: 'insideBottom', offset: -5, fill: '#94a3b8' }}
+                        />
+                        <YAxis 
+                          stroke="#94a3b8"
+                          tickFormatter={(value) => `R$ ${(value/1000).toFixed(0)}k`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1e293b', 
+                            border: '1px solid #334155',
+                            borderRadius: '8px'
+                          }}
+                          formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
+                          labelFormatter={(label) => `Mês ${label}`}
+                        />
+                        <Legend />
+                        <Area 
+                          type="monotone" 
+                          dataKey="scenario1" 
+                          stroke="#10b981" 
+                          fillOpacity={1}
+                          fill="url(#colorScenario1)"
+                          name={compareMode ? "Cenário 1" : "Começando hoje"}
+                          strokeWidth={2}
+                        />
+                        {compareMode ? (
+                          <Area 
+                            type="monotone" 
+                            dataKey="scenario2" 
+                            stroke="#3b82f6" 
+                            fillOpacity={1}
+                            fill="url(#colorScenario2)"
+                            name="Cenário 2"
+                            strokeWidth={2}
+                          />
+                        ) : delayMonths > 0 && (
+                          <Area 
+                            type="monotone" 
+                            dataKey="delayed" 
+                            stroke="#ef4444" 
+                            fillOpacity={1}
+                            fill="url(#colorDelayed)"
+                            name={`Adiando ${delayMonths} meses`}
+                            strokeWidth={2}
+                          />
+                        )}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </TabsContent>
+
+                  <TabsContent value="all" className="mt-4">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={allInvestmentsData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis 
+                          dataKey="month" 
+                          stroke="#94a3b8"
+                          label={{ value: 'Meses', position: 'insideBottom', offset: -5, fill: '#94a3b8' }}
+                        />
+                        <YAxis 
+                          stroke="#94a3b8"
+                          tickFormatter={(value) => `R$ ${(value/1000).toFixed(0)}k`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1e293b', 
+                            border: '1px solid #334155',
+                            borderRadius: '8px'
+                          }}
+                          formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
+                          labelFormatter={(label) => `Mês ${label}`}
+                        />
+                        <Legend />
+                        {Object.entries(investments).map(([key, inv]) => (
+                          <Line
+                            key={key}
+                            type="monotone"
+                            dataKey={key}
+                            stroke={inv.color}
+                            strokeWidth={2}
+                            name={inv.name}
+                            dot={false}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+
+            {!compareMode && (
+              <Card className="bg-slate-900/50 border-slate-800 backdrop-blur">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Target className="w-5 h-5 text-blue-500" />
+                        Seus Objetivos
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Veja em quanto tempo você atinge cada meta
+                      </CardDescription>
+                    </div>
+                    <button
+                      onClick={() => setShowGoalForm(!showGoalForm)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all text-sm"
+                    >
+                      + Adicionar Meta
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  
+                  {showGoalForm && (
+                    <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 space-y-4">
+                      <h3 className="text-white font-semibold">Nova Meta</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-2 space-y-2">
+                          <Label className="text-slate-300">Nome da Meta</Label>
+                          <Input
+                            placeholder="Ex: Notebook novo"
+                            value={newGoal.name}
+                            onChange={(e) => setNewGoal({...newGoal, name: e.target.value})}
+                            className="bg-slate-900 border-slate-700 text-white"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-slate-300">Valor (R$)</Label>
+                          <Input
+                            type="number"
+                            placeholder="5000"
+                            value={newGoal.value}
+                            onChange={(e) => setNewGoal({...newGoal, value: e.target.value})}
+                            className="bg-slate-900 border-slate-700 text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-slate-300">Escolha um emoji</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {emojiOptions.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => setNewGoal({...newGoal, emoji})}
+                              className={`text-2xl p-2 rounded-lg transition-all ${
+                                newGoal.emoji === emoji 
+                                  ? 'bg-blue-600 scale-110' 
+                                  : 'bg-slate-800 hover:bg-slate-700'
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={addCustomGoal}
+                          disabled={!newGoal.name || !newGoal.value}
+                          className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Adicionar Meta
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowGoalForm(false);
+                            setNewGoal({ name: '', value: '', emoji: '🎯' });
+                          }}
+                          className="px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {customGoals.map((goal) => {
+                      const months = calculateMonthsToGoal(goal.value, initialAmount, monthlyDeposit, investments[selectedInvestment as keyof typeof investments].rate);
+                      const canAchieve = months !== null && months <= years * 12;
+                      const progress = Math.min((finalAmount / goal.value) * 100, 100);
+                      
+                      return (
+                        <div 
+                          key={goal.id}
+                          className={`p-4 rounded-lg border transition-all relative group ${
+                            canAchieve 
+                              ? 'bg-emerald-950/30 border-emerald-800/50 hover:border-emerald-600' 
+                              : 'bg-slate-800/30 border-slate-700/50 hover:border-slate-600'
+                          }`}
+                        >
+                          <button
+                            onClick={() => removeGoal(goal.id)}
+                            className="absolute top-2 right-2 p-1 bg-red-950/50 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-900/50"
+                            title="Remover meta"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-3xl">{goal.emoji}</span>
+                              <div>
+                                <div className="text-white font-semibold">{goal.name}</div>
+                                <div className="text-slate-400 text-sm">
+                                  R$ {goal.value.toLocaleString('pt-BR')}
+                                </div>
+                              </div>
+                            </div>
+                            {canAchieve && (
+                              <div className="text-emerald-400 text-sm font-bold text-right">
+                                {Math.floor(months / 12)}a {months % 12}m
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-500 ${
+                                  canAchieve ? 'bg-emerald-500' : 'bg-slate-500'
+                                }`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-slate-400 text-right">
+                              {progress.toFixed(0)}%
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {customGoals.length === 0 && (
+                    <div className="text-center py-8 text-slate-400">
+                      <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Nenhuma meta cadastrada ainda.</p>
+                      <p className="text-sm">Clique em "Adicionar Meta" para começar!</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {savedSimulations.length > 0 && (
+              <Card className="bg-slate-900/50 border-slate-800 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <History className="w-5 h-5 text-purple-500" />
+                    Histórico de Simulações
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Últimas simulações salvas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {savedSimulations.map((sim) => (
+                      <div 
+                        key={sim.id}
+                        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-all"
+                      >
+                        <div className="flex-1 cursor-pointer" onClick={() => loadSimulation(sim)}>
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl">{investments[sim.investment as keyof typeof investments].name.charAt(0)}</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">
+                                {investments[sim.investment as keyof typeof investments].name}
+                              </div>
+                              <div className="text-slate-400 text-xs">
+                                {sim.date} • {sim.years} anos
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-emerald-400 font-bold text-sm">
+                            R$ {sim.finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                          </div>
+                          <div className="text-slate-400 text-xs">
+                            +R$ {sim.profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteSimulation(sim.id)}
+                          className="ml-3 p-2 text-slate-400 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+          </div>
+        </div>
+
+        <Card className="bg-slate-900/30 border-slate-800/50 backdrop-blur">
+          <CardContent className="p-6">
+            <div className="text-center space-y-2">
+              <p className="text-slate-400 text-sm">
+                💡 <strong>Dica PWA:</strong> Adicione este site à tela inicial do seu celular para usar como app! 
+                No Chrome: Menu → "Adicionar à tela inicial"
+              </p>
+              <p className="text-slate-400 text-sm">
+                Simulação usando taxas aproximadas do mercado brasileiro. Valores para fins educacionais.
+              </p>
+              <p className="text-slate-500 text-xs">
+                Rentabilidade passada não garante resultados futuros. Consulte um profissional antes de investir.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
     </div>
   );
 }
