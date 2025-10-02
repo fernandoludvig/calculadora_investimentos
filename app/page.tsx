@@ -481,13 +481,52 @@ export default function InvestmentCalculator() {
   // Gerar imagem para redes sociais
   const generateShareImage = async () => {
     try {
-      const element = document.getElementById('share-content');
-      if (!element) return;
+      // Criar elemento temporário se não existir
+      let element = document.getElementById('share-content');
+      if (!element) {
+        // Criar elemento temporário
+        element = document.createElement('div');
+        element.id = 'share-content';
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '-9999px';
+        element.style.width = '800px';
+        element.style.height = '600px';
+        element.style.backgroundColor = theme === 'light' ? '#ffffff' : '#0f172a';
+        element.style.color = theme === 'light' ? '#000000' : '#ffffff';
+        element.style.padding = '40px';
+        element.style.borderRadius = '12px';
+        element.style.fontFamily = 'Arial, sans-serif';
+        
+        element.innerHTML = `
+          <div style="text-align: center;">
+            <h2 style="font-size: 32px; margin-bottom: 20px; color: ${theme === 'light' ? '#000' : '#fff'};">O Preço de Esperar</h2>
+            <div style="background: ${theme === 'light' ? '#f8f9fa' : '#1e293b'}; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 8px 0; font-size: 16px;"><strong>Investimento:</strong> ${investments[selectedInvestment as keyof typeof investments].name}</p>
+              <p style="margin: 8px 0; font-size: 16px;"><strong>Valor Inicial:</strong> R$ ${initialAmount.toLocaleString('pt-BR')}</p>
+              <p style="margin: 8px 0; font-size: 16px;"><strong>Depósito Mensal:</strong> R$ ${monthlyDeposit.toLocaleString('pt-BR')}</p>
+              <p style="margin: 8px 0; font-size: 16px;"><strong>Período:</strong> ${years} anos</p>
+              <p style="margin: 8px 0; font-size: 20px; color: #10b981;"><strong>Valor Final:</strong> R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+              <p style="margin: 8px 0; font-size: 18px; color: #10b981;"><strong>Lucro:</strong> R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <p style="font-size: 14px; color: #666; margin-top: 20px;">Calculadora de Investimentos - O Preço de Esperar</p>
+          </div>
+        `;
+        
+        document.body.appendChild(element);
+      }
       
       const canvas = await html2canvas(element, {
         backgroundColor: theme === 'light' ? '#ffffff' : '#0f172a',
-        scale: 2
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
       });
+      
+      // Remover elemento temporário se foi criado
+      if (element.style.position === 'absolute') {
+        document.body.removeChild(element);
+      }
       
       const link = document.createElement('a');
       link.download = `calculadora-investimentos-${Date.now()}.png`;
@@ -495,7 +534,8 @@ export default function InvestmentCalculator() {
       link.click();
       
       toast.success('Imagem gerada com sucesso!');
-    } catch {
+    } catch (error) {
+      console.error('Erro ao gerar imagem:', error);
       toast.error('Erro ao gerar imagem');
     }
   };
@@ -918,7 +958,7 @@ export default function InvestmentCalculator() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
             >
               {copied ? <Check className="w-4 h-4 text-green-400" /> : <Share2 className="w-4 h-4" />}
-              {copied ? 'Copiado!' : 'Compartilhar'}
+              {copied ? 'Copiado!' : 'Copiar Texto'}
             </button>
 
             <button
@@ -942,7 +982,7 @@ export default function InvestmentCalculator() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-semibold hover:bg-slate-700 transition-all"
             >
               <Link className="w-4 h-4" />
-              Link
+              Copiar Link
             </button>
 
             <button
@@ -1067,10 +1107,6 @@ export default function InvestmentCalculator() {
                     {(investments.cdb.rate * 100).toFixed(2)}% a.a.
                   </div>
                 </div>
-              </div>
-              {/* Debug info */}
-              <div className="mt-2 text-xs text-slate-500 text-center">
-                Debug: Selic={ratesData.selic}, CDI={ratesData.cdi}, IPCA={ratesData.ipca}
               </div>
             </CardContent>
           </Card>
@@ -1782,20 +1818,6 @@ export default function InvestmentCalculator() {
           </CardContent>
         </Card>
 
-        {/* Conteúdo para compartilhamento (oculto) */}
-        <div id="share-content" className="hidden">
-          <div className="bg-gradient-to-br from-slate-950 to-slate-900 text-white p-8 rounded-lg">
-            <h2 className="text-3xl font-bold mb-4">O Preço de Esperar</h2>
-            <div className="space-y-2">
-              <p><strong>Investimento:</strong> {investments[selectedInvestment as keyof typeof investments].name}</p>
-              <p><strong>Valor Inicial:</strong> R$ {initialAmount.toLocaleString('pt-BR')}</p>
-              <p><strong>Depósito Mensal:</strong> R$ {monthlyDeposit.toLocaleString('pt-BR')}</p>
-              <p><strong>Período:</strong> {years} anos</p>
-              <p><strong>Valor Final:</strong> R$ {finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-              <p><strong>Lucro:</strong> R$ {profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-            </div>
-          </div>
-        </div>
 
       </div>
     </div>
