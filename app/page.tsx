@@ -112,9 +112,9 @@ export default function InvestmentCalculator() {
 
   // Taxas fallback (caso API falhe)
   const fallbackRates: RateData = {
-    selic: 0.15,
-    cdi: 0.1490,
-    ipca: 0.0523,
+    selic: 0.15,      // 15.00% a.a.
+    cdi: 0.149,       // 14.90% a.a.
+    ipca: 0.0513,     // 5.13% (12 meses)
     lastUpdate: 'Estimativa (API indisponível)',
     timestamp: Date.now()
   };
@@ -125,6 +125,8 @@ export default function InvestmentCalculator() {
     setRatesError(false);
 
     try {
+      console.log('🔄 Iniciando busca das taxas...');
+      
       // Buscar dados das APIs do Banco Central
       const [selicRes, cdiRes, ipcaRes] = await Promise.all([
         // Selic Meta definida pelo Copom (anual)
@@ -135,25 +137,41 @@ export default function InvestmentCalculator() {
         fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json')
       ]);
 
+      console.log('📡 Respostas recebidas:', {
+        selic: selicRes.status,
+        cdi: cdiRes.status,
+        ipca: ipcaRes.status
+      });
+
       if (!selicRes.ok || !cdiRes.ok || !ipcaRes.ok) {
-        throw new Error('Erro ao buscar dados');
+        throw new Error(`Erro HTTP: Selic=${selicRes.status}, CDI=${cdiRes.status}, IPCA=${ipcaRes.status}`);
       }
 
       const selicData = await selicRes.json();
       const cdiData = await cdiRes.json();
       const ipcaData = await ipcaRes.json();
 
+      console.log('📊 Dados brutos:', { selicData, cdiData, ipcaData: ipcaData.slice(0, 3) });
+
       // Processar Selic (já vem anualizada em %)
-      const selicAnual = parseFloat(selicData[0]?.valor) / 100 || fallbackRates.selic;
+      const selicAnual = parseFloat(selicData[0]?.valor) / 100;
+      console.log('🎯 Selic processada:', selicAnual);
       
       // Processar CDI (já vem anualizado em %)
-      const cdiAnual = parseFloat(cdiData[0]?.valor) / 100 || fallbackRates.cdi;
+      const cdiAnual = parseFloat(cdiData[0]?.valor) / 100;
+      console.log('🎯 CDI processado:', cdiAnual);
       
       // IPCA acumulado dos últimos 12 meses
       const ipcaAcumulado = ipcaData.reduce((acc: number, item: any) => {
         const valor = parseFloat(item.valor) / 100;
         return acc * (1 + valor);
       }, 1) - 1;
+      console.log('🎯 IPCA processado:', ipcaAcumulado);
+
+      // Validar se os dados são válidos
+      if (isNaN(selicAnual) || isNaN(cdiAnual) || isNaN(ipcaAcumulado)) {
+        throw new Error('Dados inválidos recebidos da API');
+      }
 
       const now = new Date();
       const newRatesData: RateData = {
@@ -170,12 +188,13 @@ export default function InvestmentCalculator() {
         timestamp: now.getTime()
       };
 
+      console.log('💾 Salvando dados:', newRatesData);
       setRatesData(newRatesData);
       
       // Salvar no cache
       localStorage.setItem('investmentRates', JSON.stringify(newRatesData));
       
-      console.log('✅ Taxas atualizadas:', {
+      console.log('✅ Taxas atualizadas com sucesso:', {
         selic: `${(selicAnual * 100).toFixed(2)}%`,
         cdi: `${(cdiAnual * 100).toFixed(2)}%`,
         ipca: `${(ipcaAcumulado * 100).toFixed(2)}%`
@@ -188,12 +207,19 @@ export default function InvestmentCalculator() {
       // Usar cache se disponível, senão usar fallback
       const cached = localStorage.getItem('investmentRates');
       if (cached) {
-        const cacheData = JSON.parse(cached);
-        setRatesData({
-          ...cacheData,
-          lastUpdate: cacheData.lastUpdate + ' (cache)'
-        });
+        try {
+          const cacheData = JSON.parse(cached);
+          console.log('📦 Usando cache:', cacheData);
+          setRatesData({
+            ...cacheData,
+            lastUpdate: cacheData.lastUpdate + ' (cache)'
+          });
+        } catch (cacheError) {
+          console.error('❌ Erro ao ler cache:', cacheError);
+          setRatesData(fallbackRates);
+        }
       } else {
+        console.log('🔄 Usando taxas fallback');
         setRatesData(fallbackRates);
       }
     } finally {
