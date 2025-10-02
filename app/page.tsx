@@ -11,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from 'recharts';
 import { TrendingUp, Clock, Target, AlertTriangle, Zap, Share2, Check, History, GitCompare, Trash2, Download, RefreshCw, Wifi, WifiOff, FileText, Table, FileSpreadsheet } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 
 interface Goal {
@@ -162,7 +161,7 @@ export default function InvestmentCalculator() {
       console.log('🎯 CDI processado:', cdiAnual, 'de', cdiData[0]?.valor);
       
       // IPCA acumulado dos últimos 12 meses
-      const ipcaAcumulado = ipcaData.reduce((acc: number, item: any) => {
+      const ipcaAcumulado = ipcaData.reduce((acc: number, item: { valor: string }) => {
         const valor = parseFloat(item.valor) / 100;
         return acc * (1 + valor);
       }, 1) - 1;
@@ -309,7 +308,7 @@ export default function InvestmentCalculator() {
     const maxMonths = Math.max(years * 12, scenario2.years * 12);
     
     for (let month = 0; month <= maxMonths; month++) {
-      const dataPoint: any = { month };
+      const dataPoint: { month: number; scenario1?: number; scenario2?: number; delayed?: number } = { month };
       
       if (month <= years * 12) {
         const value = calculateInvestment(
@@ -351,7 +350,7 @@ export default function InvestmentCalculator() {
     const data = [];
     
     for (let month = 0; month <= years * 12; month++) {
-      const dataPoint: any = { month };
+      const dataPoint: { month: number; [key: string]: number } = { month };
       
       Object.keys(investments).forEach(key => {
         const value = calculateInvestment(
@@ -396,7 +395,7 @@ export default function InvestmentCalculator() {
     }, 60 * 60 * 1000); // Verificar a cada hora
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchRealRates]);
 
   useEffect(() => {
     if (delayMonths > 0) {
@@ -406,10 +405,10 @@ export default function InvestmentCalculator() {
     } else {
       setLostMoney(0);
     }
-  }, [initialAmount, monthlyDeposit, years, delayMonths, selectedInvestment, ratesData]);
+  }, [initialAmount, monthlyDeposit, years, delayMonths, selectedInvestment, ratesData, investments]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       if (showExportMenu) {
         setShowExportMenu(false);
       }
@@ -1195,7 +1194,7 @@ export default function InvestmentCalculator() {
                             border: '1px solid #334155',
                             borderRadius: '8px'
                           }}
-                          formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
+                          formatter={(value: number | string) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
                           labelFormatter={(label) => `Mês ${label}`}
                         />
                         <Legend />
@@ -1252,7 +1251,7 @@ export default function InvestmentCalculator() {
                             border: '1px solid #334155',
                             borderRadius: '8px'
                           }}
-                          formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
+                          formatter={(value: number | string) => `R$ ${Number(value).toLocaleString('pt-BR')}`}
                           labelFormatter={(label) => `Mês ${label}`}
                         />
                         <Legend />
