@@ -88,63 +88,79 @@
   
   /* Light mode styles */
   .light body {
-    @apply bg-gradient-to-br from-slate-50 to-slate-100 text-slate-900;
+    @apply bg-gradient-to-br from-white to-gray-100 text-gray-900;
   }
   
   .light .card {
-    @apply bg-white/90 border-slate-200;
+    @apply bg-white border-gray-200 shadow-lg;
+  }
+  
+  .light .bg-slate-950 {
+    @apply bg-white;
   }
   
   .light .bg-slate-900 {
-    @apply bg-slate-100;
+    @apply bg-gray-100;
   }
   
   .light .bg-slate-900\/30 {
-    @apply bg-white/80;
+    @apply bg-white;
   }
   
   .light .bg-slate-900\/50 {
-    @apply bg-white/90;
+    @apply bg-white;
   }
   
   .light .bg-slate-800 {
-    @apply bg-slate-200;
+    @apply bg-gray-200;
   }
   
   .light .bg-slate-800\/50 {
-    @apply bg-slate-300/80;
+    @apply bg-gray-200;
+  }
+  
+  .light .bg-slate-700 {
+    @apply bg-gray-300;
   }
   
   .light .text-white {
-    @apply text-slate-900;
+    @apply text-gray-900;
   }
   
   .light .text-slate-400 {
-    @apply text-slate-600;
+    @apply text-gray-600;
   }
   
   .light .text-slate-300 {
-    @apply text-slate-700;
+    @apply text-gray-700;
   }
   
   .light .text-slate-500 {
-    @apply text-slate-600;
+    @apply text-gray-600;
+  }
+  
+  .light .text-slate-200 {
+    @apply text-gray-800;
   }
   
   .light .border-slate-800 {
-    @apply border-slate-200;
+    @apply border-gray-200;
   }
   
   .light .border-slate-700 {
-    @apply border-slate-300;
+    @apply border-gray-300;
+  }
+  
+  .light .border-slate-600 {
+    @apply border-gray-400;
   }
   
   .light .hover\:bg-slate-700:hover {
-    @apply hover:bg-slate-400;
+    @apply hover:bg-gray-300;
   }
   
   .light .hover\:bg-slate-800:hover {
-    @apply hover:bg-slate-300;
+    @apply hover:bg-gray-200;
   }
   
   .light .bg-emerald-600 {
@@ -153,5 +169,17 @@
   
   .light .bg-blue-600 {
     @apply bg-blue-600;
+  }
+  
+  .light .bg-red-950 {
+    @apply bg-red-100;
+  }
+  
+  .light .border-red-900 {
+    @apply border-red-300;
+  }
+  
+  .light .text-red-400 {
+    @apply text-red-600;
   }
 }

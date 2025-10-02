@@ -481,53 +481,86 @@ export default function InvestmentCalculator() {
   // Gerar imagem para redes sociais
   const generateShareImage = async () => {
     try {
-      // Criar elemento temporário se não existir
-      let element = document.getElementById('share-content');
-      if (!element) {
-        // Criar elemento temporário
-        element = document.createElement('div');
-        element.id = 'share-content';
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '-9999px';
-        element.style.width = '800px';
-        element.style.height = '600px';
-        element.style.backgroundColor = theme === 'light' ? '#ffffff' : '#0f172a';
-        element.style.color = theme === 'light' ? '#000000' : '#ffffff';
-        element.style.padding = '40px';
-        element.style.borderRadius = '12px';
-        element.style.fontFamily = 'Arial, sans-serif';
-        
-        element.innerHTML = `
-          <div style="text-align: center;">
-            <h2 style="font-size: 32px; margin-bottom: 20px; color: ${theme === 'light' ? '#000' : '#fff'};">O Preço de Esperar</h2>
-            <div style="background: ${theme === 'light' ? '#f8f9fa' : '#1e293b'}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 8px 0; font-size: 16px;"><strong>Investimento:</strong> ${investments[selectedInvestment as keyof typeof investments].name}</p>
-              <p style="margin: 8px 0; font-size: 16px;"><strong>Valor Inicial:</strong> R$ ${initialAmount.toLocaleString('pt-BR')}</p>
-              <p style="margin: 8px 0; font-size: 16px;"><strong>Depósito Mensal:</strong> R$ ${monthlyDeposit.toLocaleString('pt-BR')}</p>
-              <p style="margin: 8px 0; font-size: 16px;"><strong>Período:</strong> ${years} anos</p>
-              <p style="margin: 8px 0; font-size: 20px; color: #10b981;"><strong>Valor Final:</strong> R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-              <p style="margin: 8px 0; font-size: 18px; color: #10b981;"><strong>Lucro:</strong> R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-            </div>
-            <p style="font-size: 14px; color: #666; margin-top: 20px;">Calculadora de Investimentos - O Preço de Esperar</p>
-          </div>
-        `;
-        
-        document.body.appendChild(element);
+      // Criar canvas diretamente sem html2canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Canvas context not available');
       }
       
-      const canvas = await html2canvas(element, {
-        backgroundColor: theme === 'light' ? '#ffffff' : '#0f172a',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true
+      // Configurar tamanho do canvas
+      canvas.width = 800;
+      canvas.height = 600;
+      
+      // Definir cores baseadas no tema
+      const bgColor = theme === 'light' ? '#ffffff' : '#0f172a';
+      const textColor = theme === 'light' ? '#000000' : '#ffffff';
+      const cardBg = theme === 'light' ? '#f8f9fa' : '#1e293b';
+      
+      // Preencher fundo
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Configurar fonte
+      ctx.font = 'bold 36px Arial, sans-serif';
+      ctx.fillStyle = textColor;
+      ctx.textAlign = 'center';
+      
+      // Título
+      ctx.fillText('O Preço de Esperar', canvas.width / 2, 80);
+      
+      // Subtítulo
+      ctx.font = '18px Arial, sans-serif';
+      ctx.fillStyle = '#666666';
+      ctx.fillText('Calculadora de Investimentos', canvas.width / 2, 110);
+      
+      // Card de informações
+      const cardX = 50;
+      const cardY = 150;
+      const cardWidth = canvas.width - 100;
+      const cardHeight = 350;
+      
+      // Fundo do card
+      ctx.fillStyle = cardBg;
+      // Desenhar retângulo simples
+      ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
+      
+      // Texto do card
+      ctx.fillStyle = textColor;
+      ctx.font = 'bold 20px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      
+      const info = [
+        `Investimento: ${investments[selectedInvestment as keyof typeof investments].name}`,
+        `Valor Inicial: R$ ${initialAmount.toLocaleString('pt-BR')}`,
+        `Depósito Mensal: R$ ${monthlyDeposit.toLocaleString('pt-BR')}`,
+        `Período: ${years} anos`,
+        '',
+        `Valor Final: R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`,
+        `Lucro: R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+      ];
+      
+      let y = cardY + 50;
+      info.forEach((line, index) => {
+        if (index === 5 || index === 6) {
+          ctx.fillStyle = '#10b981'; // Verde para resultados
+          ctx.font = index === 5 ? 'bold 24px Arial, sans-serif' : 'bold 20px Arial, sans-serif';
+        } else {
+          ctx.fillStyle = textColor;
+          ctx.font = '16px Arial, sans-serif';
+        }
+        ctx.fillText(line, cardX + 30, y);
+        y += index === 4 ? 20 : 35; // Espaço extra após período
       });
       
-      // Remover elemento temporário se foi criado
-      if (element.style.position === 'absolute') {
-        document.body.removeChild(element);
-      }
+      // Rodapé
+      ctx.fillStyle = '#666666';
+      ctx.font = '14px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Gerado em: ' + new Date().toLocaleDateString('pt-BR'), canvas.width / 2, canvas.height - 30);
       
+      // Download da imagem
       const link = document.createElement('a');
       link.download = `calculadora-investimentos-${Date.now()}.png`;
       link.href = canvas.toDataURL();
