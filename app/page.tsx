@@ -601,38 +601,92 @@ export default function InvestmentCalculator() {
         ctx.fillText(param, cardX + 40, cardY + 160 + (index * 30));
       });
       
-      // Gráfico de crescimento simulado
-      const graphX = cardX + cardWidth - 200;
-      const graphY = cardY + 150;
-      const graphWidth = 150;
-      const graphHeight = 80;
+      // Gráfico de crescimento melhorado
+      const graphX = cardX + cardWidth - 220;
+      const graphY = cardY + 140;
+      const graphWidth = 180;
+      const graphHeight = 100;
       
-      // Fundo do gráfico
-      ctx.fillStyle = isLight ? '#f8fafc' : '#374151';
+      // Fundo do gráfico com gradiente
+      const graphGradient = ctx.createLinearGradient(graphX, graphY, graphX, graphY + graphHeight);
+      if (isLight) {
+        graphGradient.addColorStop(0, '#f8fafc');
+        graphGradient.addColorStop(1, '#e2e8f0');
+      } else {
+        graphGradient.addColorStop(0, '#374151');
+        graphGradient.addColorStop(1, '#1f2937');
+      }
+      ctx.fillStyle = graphGradient;
       ctx.fillRect(graphX, graphY, graphWidth, graphHeight);
       
       // Borda do gráfico
-      ctx.strokeStyle = isLight ? '#e5e7eb' : '#4b5563';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isLight ? '#d1d5db' : '#4b5563';
+      ctx.lineWidth = 2;
       ctx.strokeRect(graphX, graphY, graphWidth, graphHeight);
+      
+      // Grid do gráfico
+      ctx.strokeStyle = isLight ? '#e5e7eb' : '#374151';
+      ctx.lineWidth = 1;
+      
+      // Linhas horizontais
+      for (let i = 1; i < 4; i++) {
+        const y = graphY + (i * graphHeight / 4);
+        ctx.beginPath();
+        ctx.moveTo(graphX, y);
+        ctx.lineTo(graphX + graphWidth, y);
+        ctx.stroke();
+      }
+      
+      // Linhas verticais
+      for (let i = 1; i < 5; i++) {
+        const x = graphX + (i * graphWidth / 5);
+        ctx.beginPath();
+        ctx.moveTo(x, graphY);
+        ctx.lineTo(x, graphY + graphHeight);
+        ctx.stroke();
+      }
+      
+      // Área sob a curva com gradiente
+      const areaGradient = ctx.createLinearGradient(graphX, graphY, graphX, graphY + graphHeight);
+      areaGradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+      areaGradient.addColorStop(1, 'rgba(16, 185, 129, 0.05)');
+      
+      ctx.fillStyle = areaGradient;
+      ctx.beginPath();
+      
+      // Pontos mais realistas baseados no crescimento exponencial
+      const totalMonths = years * 12;
+      const monthlyRate = investments[selectedInvestment as keyof typeof investments].rate / 12;
+      
+      const points = [];
+      for (let i = 0; i <= 10; i++) {
+        const month = (i * totalMonths) / 10;
+        const accumulatedValue = initialAmount + (monthlyDeposit * month);
+        const compoundedValue = initialAmount * Math.pow(1 + monthlyRate, month) + 
+                               monthlyDeposit * ((Math.pow(1 + monthlyRate, month) - 1) / monthlyRate);
+        
+        const x = (i / 10) * graphWidth;
+        const y = graphHeight - (compoundedValue / finalAmount) * graphHeight * 0.8 - graphHeight * 0.1;
+        points.push({ x, y });
+      }
+      
+      // Desenhar área
+      ctx.moveTo(graphX + points[0].x, graphY + graphHeight);
+      points.forEach(point => {
+        ctx.lineTo(graphX + point.x, graphY + point.y);
+      });
+      ctx.lineTo(graphX + points[points.length - 1].x, graphY + graphHeight);
+      ctx.closePath();
+      ctx.fill();
       
       // Linha do gráfico
       ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.beginPath();
       
-      const points = [
-        { x: 0, y: 0.9 },
-        { x: 0.2, y: 0.7 },
-        { x: 0.4, y: 0.5 },
-        { x: 0.6, y: 0.3 },
-        { x: 0.8, y: 0.15 },
-        { x: 1, y: 0.1 }
-      ];
-      
       points.forEach((point, index) => {
-        const x = graphX + (point.x * graphWidth);
-        const y = graphY + (point.y * graphHeight);
+        const x = graphX + point.x;
+        const y = graphY + point.y;
         
         if (index === 0) {
           ctx.moveTo(x, y);
@@ -641,6 +695,42 @@ export default function InvestmentCalculator() {
         }
       });
       ctx.stroke();
+      
+      // Pontos de dados
+      ctx.fillStyle = '#10b981';
+      points.forEach((point, index) => {
+        if (index % 2 === 0) { // Mostrar apenas alguns pontos
+          ctx.beginPath();
+          ctx.arc(graphX + point.x, graphY + point.y, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Fundo branco para contraste
+          ctx.fillStyle = isLight ? '#ffffff' : '#1e293b';
+          ctx.beginPath();
+          ctx.arc(graphX + point.x, graphY + point.y, 2, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.fillStyle = '#10b981';
+        }
+      });
+      
+      // Labels do gráfico
+      ctx.font = '12px Arial, sans-serif';
+      ctx.fillStyle = isLight ? '#6b7280' : '#9ca3af';
+      ctx.textAlign = 'center';
+      
+      // Label Y (valor)
+      ctx.fillText('R$ 0', graphX - 30, graphY + graphHeight + 5);
+      ctx.fillText('R$ ' + Math.round(finalAmount/1000) + 'k', graphX - 30, graphY + 10);
+      
+      // Label X (tempo)
+      ctx.fillText('0', graphX, graphY + graphHeight + 20);
+      ctx.fillText(years + 'a', graphX + graphWidth, graphY + graphHeight + 20);
+      
+      // Título do gráfico
+      ctx.font = 'bold 14px Arial, sans-serif';
+      ctx.fillStyle = isLight ? '#374151' : '#f9fafb';
+      ctx.textAlign = 'center';
+      ctx.fillText('Evolução do Investimento', graphX + graphWidth/2, graphY - 10);
       
       // Linha separadora final
       ctx.strokeStyle = isLight ? '#e5e7eb' : '#374151';
