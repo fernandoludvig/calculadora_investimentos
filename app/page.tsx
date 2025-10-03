@@ -482,7 +482,7 @@ export default function InvestmentCalculator() {
   // Gerar imagem para redes sociais
   const generateShareImage = async () => {
     try {
-      // Criar canvas diretamente sem html2canvas
+      // Criar canvas com design melhorado
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
@@ -491,79 +491,195 @@ export default function InvestmentCalculator() {
       }
       
       // Configurar tamanho do canvas
-      canvas.width = 800;
-      canvas.height = 600;
+      canvas.width = 1200;
+      canvas.height = 630; // Formato ideal para redes sociais
       
       // Definir cores baseadas no tema
-      const bgColor = theme === 'light' ? '#ffffff' : '#0f172a';
-      const textColor = theme === 'light' ? '#000000' : '#ffffff';
-      const cardBg = theme === 'light' ? '#f8f9fa' : '#1e293b';
+      const isLight = theme === 'light';
+      const bgGradient = isLight 
+        ? ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
+        : ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       
-      // Preencher fundo
-      ctx.fillStyle = bgColor;
+      if (isLight) {
+        bgGradient.addColorStop(0, '#f8fafc');
+        bgGradient.addColorStop(1, '#e2e8f0');
+      } else {
+        bgGradient.addColorStop(0, '#0f172a');
+        bgGradient.addColorStop(1, '#1e293b');
+      }
+      
+      ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Configurar fonte
-      ctx.font = 'bold 36px Arial, sans-serif';
-      ctx.fillStyle = textColor;
-      ctx.textAlign = 'center';
+      // Header com gradiente
+      const headerGradient = ctx.createLinearGradient(0, 0, 0, 120);
+      if (isLight) {
+        headerGradient.addColorStop(0, '#3b82f6');
+        headerGradient.addColorStop(1, '#1d4ed8');
+      } else {
+        headerGradient.addColorStop(0, '#1e40af');
+        headerGradient.addColorStop(1, '#1e3a8a');
+      }
       
-      // Título
-      ctx.fillText('O Preço de Esperar', canvas.width / 2, 80);
+      ctx.fillStyle = headerGradient;
+      ctx.fillRect(0, 0, canvas.width, 120);
+      
+      // Título principal
+      ctx.font = 'bold 48px Arial, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText('💰 O Preço de Esperar', canvas.width / 2, 60);
       
       // Subtítulo
-      ctx.font = '18px Arial, sans-serif';
-      ctx.fillStyle = '#666666';
-      ctx.fillText('Calculadora de Investimentos', canvas.width / 2, 110);
+      ctx.font = '20px Arial, sans-serif';
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText('Calculadora de Investimentos Inteligente', canvas.width / 2, 90);
       
-      // Card de informações
-      const cardX = 50;
-      const cardY = 150;
-      const cardWidth = canvas.width - 100;
-      const cardHeight = 350;
+      // Card principal com sombra
+      const cardX = 80;
+      const cardY = 160;
+      const cardWidth = canvas.width - 160;
+      const cardHeight = 400;
+      
+      // Sombra do card
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(cardX + 5, cardY + 5, cardWidth, cardHeight);
       
       // Fundo do card
-      ctx.fillStyle = cardBg;
-      // Desenhar retângulo simples
+      ctx.fillStyle = isLight ? '#ffffff' : '#1e293b';
       ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
       
-      // Texto do card
-      ctx.fillStyle = textColor;
-      ctx.font = 'bold 20px Arial, sans-serif';
-      ctx.textAlign = 'left';
+      // Borda do card
+      ctx.strokeStyle = isLight ? '#e2e8f0' : '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
       
-      const info = [
-        `Investimento: ${investments[selectedInvestment as keyof typeof investments].name}`,
+      // Ícone do investimento
+      const investmentEmojis: Record<string, string> = {
+        poupanca: '🏦',
+        cdb: '💳',
+        tesouroDireto: '🏛️',
+        tesouroIPCA: '📈',
+        acoes: '📊',
+        fundos: '🎯'
+      };
+      
+      const investmentEmoji = investmentEmojis[selectedInvestment] || '💰';
+      ctx.font = '60px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.textAlign = 'left';
+      ctx.fillText(investmentEmoji, cardX + 40, cardY + 80);
+      
+      // Nome do investimento
+      ctx.font = 'bold 32px Arial, sans-serif';
+      ctx.fillStyle = isLight ? '#1f2937' : '#ffffff';
+      ctx.fillText(investments[selectedInvestment as keyof typeof investments].name, cardX + 140, cardY + 70);
+      
+      // Taxa do investimento
+      ctx.font = '20px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`${(investments[selectedInvestment as keyof typeof investments].rate * 100).toFixed(2)}% ao ano`, cardX + 140, cardY + 100);
+      
+      // Linha separadora
+      ctx.strokeStyle = isLight ? '#e5e7eb' : '#374151';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 40, cardY + 130);
+      ctx.lineTo(cardX + cardWidth - 40, cardY + 130);
+      ctx.stroke();
+      
+      // Parâmetros do investimento
+      ctx.font = '18px Arial, sans-serif';
+      ctx.fillStyle = isLight ? '#6b7280' : '#9ca3af';
+      const params = [
         `Valor Inicial: R$ ${initialAmount.toLocaleString('pt-BR')}`,
         `Depósito Mensal: R$ ${monthlyDeposit.toLocaleString('pt-BR')}`,
-        `Período: ${years} anos`,
-        '',
-        `Valor Final: R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`,
-        `Lucro: R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+        `Período: ${years} anos`
       ];
       
-      let y = cardY + 50;
-      info.forEach((line, index) => {
-        if (index === 5 || index === 6) {
-          ctx.fillStyle = '#10b981'; // Verde para resultados
-          ctx.font = index === 5 ? 'bold 24px Arial, sans-serif' : 'bold 20px Arial, sans-serif';
-        } else {
-          ctx.fillStyle = textColor;
-          ctx.font = '16px Arial, sans-serif';
-        }
-        ctx.fillText(line, cardX + 30, y);
-        y += index === 4 ? 20 : 35; // Espaço extra após período
+      params.forEach((param, index) => {
+        ctx.fillText(param, cardX + 40, cardY + 160 + (index * 30));
       });
       
-      // Rodapé
-      ctx.fillStyle = '#666666';
-      ctx.font = '14px Arial, sans-serif';
+      // Gráfico de crescimento simulado
+      const graphX = cardX + cardWidth - 200;
+      const graphY = cardY + 150;
+      const graphWidth = 150;
+      const graphHeight = 80;
+      
+      // Fundo do gráfico
+      ctx.fillStyle = isLight ? '#f8fafc' : '#374151';
+      ctx.fillRect(graphX, graphY, graphWidth, graphHeight);
+      
+      // Borda do gráfico
+      ctx.strokeStyle = isLight ? '#e5e7eb' : '#4b5563';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(graphX, graphY, graphWidth, graphHeight);
+      
+      // Linha do gráfico
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      
+      const points = [
+        { x: 0, y: 0.9 },
+        { x: 0.2, y: 0.7 },
+        { x: 0.4, y: 0.5 },
+        { x: 0.6, y: 0.3 },
+        { x: 0.8, y: 0.15 },
+        { x: 1, y: 0.1 }
+      ];
+      
+      points.forEach((point, index) => {
+        const x = graphX + (point.x * graphWidth);
+        const y = graphY + (point.y * graphHeight);
+        
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+      
+      // Linha separadora final
+      ctx.strokeStyle = isLight ? '#e5e7eb' : '#374151';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 40, cardY + 260);
+      ctx.lineTo(cardX + cardWidth - 40, cardY + 260);
+      ctx.stroke();
+      
+      // Resultados destacados
+      ctx.font = 'bold 36px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, cardX + 40, cardY + 310);
+      
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`Lucro: R$ ${profit.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, cardX + 40, cardY + 350);
+      
+      // Badge de valor final
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(cardX + cardWidth - 180, cardY + 280, 140, 60);
+      
+      ctx.font = 'bold 20px Arial, sans-serif';
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.fillText('Gerado em: ' + new Date().toLocaleDateString('pt-BR'), canvas.width / 2, canvas.height - 30);
+      ctx.fillText('Valor Final', cardX + cardWidth - 110, cardY + 305);
+      
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.fillText(`R$ ${finalAmount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, cardX + cardWidth - 110, cardY + 330);
+      
+      // Rodapé com informações
+      ctx.font = '16px Arial, sans-serif';
+      ctx.fillStyle = isLight ? '#6b7280' : '#9ca3af';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Gerado em ${new Date().toLocaleDateString('pt-BR')} • calculadora-investimentos.com`, canvas.width / 2, canvas.height - 30);
       
       // Download da imagem
       const link = document.createElement('a');
-      link.download = `calculadora-investimentos-${Date.now()}.png`;
+      link.download = `preco-de-esperar-${Date.now()}.png`;
       link.href = canvas.toDataURL();
       link.click();
       
