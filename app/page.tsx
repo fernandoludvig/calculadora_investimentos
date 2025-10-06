@@ -70,6 +70,9 @@ export default function InvestmentCalculator() {
   const [isOnline, setIsOnline] = useState(true);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSInstallGuide, setShowIOSInstallGuide] = useState(false);
   
   const [compareMode, setCompareMode] = useState(false);
   const [scenario2, setScenario2] = useState({
@@ -734,13 +737,39 @@ export default function InvestmentCalculator() {
     }
   }, []);
 
+  // Detectar iOS
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+    setIsIOS(isIOSDevice);
+  }, []);
+
   // Corrigir bug do tema ao carregar
   useEffect(() => {
+    setMounted(true);
     // Forçar aplicação do tema imediatamente
     const currentTheme = theme || 'dark';
     document.documentElement.className = currentTheme;
     document.body.className = currentTheme;
   }, [theme]);
+
+  // Evitar hidratação até que o componente esteja montado
+  if (!mounted) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="text-center space-y-4 py-8">
+            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-white">
+              O Preço de <span className="text-red-500">Esperar</span>
+            </h1>
+            <p className="text-lg max-w-2xl mx-auto text-slate-400">
+              Taxas atualizadas automaticamente via API do Banco Central
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const finalAmount = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
   const totalInvested = initialAmount + (monthlyDeposit * years * 12);
@@ -1016,7 +1045,7 @@ export default function InvestmentCalculator() {
           </p>
 
           {/* Botão de instalação PWA */}
-          {showInstallButton && (
+          {showInstallButton && !isIOS && (
             <div className="flex justify-center">
               <button
                 onClick={handleInstallClick}
@@ -1024,6 +1053,19 @@ export default function InvestmentCalculator() {
               >
                 <Download className="w-5 h-5" />
                 Instalar App
+              </button>
+            </div>
+          )}
+
+          {/* Botão para iOS */}
+          {isIOS && (
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowIOSInstallGuide(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                Instalar no iPhone
               </button>
             </div>
           )}
@@ -2064,6 +2106,79 @@ export default function InvestmentCalculator() {
           </CardContent>
         </Card>
 
+        {/* Modal de instruções para iOS */}
+        {showIOSInstallGuide && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Download className="w-5 h-5 text-blue-400" />
+                  Instalar no iPhone
+                </h3>
+                <button
+                  onClick={() => setShowIOSInstallGuide(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4 text-slate-300">
+                <p className="text-sm">
+                  No iPhone, o processo é um pouco diferente. Siga estes passos:
+                </p>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-medium">Toque no botão de compartilhar</p>
+                      <p className="text-xs text-slate-400">Na parte inferior da tela do Safari</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-medium">Role para baixo e toque em "Adicionar à Tela Inicial"</p>
+                      <p className="text-xs text-slate-400">Ou "Add to Home Screen"</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      3
+                    </div>
+                    <div>
+                      <p className="font-medium">Toque em "Adicionar"</p>
+                      <p className="text-xs text-slate-400">O app aparecerá na sua tela inicial</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-950/30 border border-blue-800/50 rounded-lg p-3 mt-4">
+                  <p className="text-blue-300 text-sm font-medium flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    Dica: O app funcionará como um aplicativo nativo!
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={() => setShowIOSInstallGuide(false)}
+                  className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-all"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
