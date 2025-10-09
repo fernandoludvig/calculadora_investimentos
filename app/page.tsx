@@ -73,6 +73,7 @@ export default function InvestmentCalculator() {
   const [mounted, setMounted] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSInstallGuide, setShowIOSInstallGuide] = useState(false);
+  const [mostrarLiquido, setMostrarLiquido] = useState(false);
   
   const [compareMode, setCompareMode] = useState(false);
   const [scenario2, setScenario2] = useState({
@@ -102,6 +103,23 @@ export default function InvestmentCalculator() {
     '🎯', '💰', '🏠', '🚗', '🏍️', '✈️', '📱', '💻', '🎓', 
     '💍', '🏖️', '🎸', '📷', '⌚', '🎮', '🏋️', '🎨', '📚'
   ];
+
+  const calcularIR = (dias: number) => {
+    if (dias <= 180) return 0.225;
+    if (dias <= 360) return 0.20;
+    if (dias <= 720) return 0.175;
+    return 0.15;
+  };
+
+  const calcularIOF = (dias: number) => {
+    if (dias >= 30) return 0;
+    const tabelaIOF = [
+      0.96, 0.93, 0.90, 0.86, 0.83, 0.80, 0.76, 0.73, 0.70, 0.66,
+      0.63, 0.60, 0.56, 0.53, 0.50, 0.46, 0.43, 0.40, 0.36, 0.33,
+      0.30, 0.26, 0.23, 0.20, 0.16, 0.13, 0.10, 0.06, 0.03, 0.00
+    ];
+    return dias < 1 ? 0.96 : tabelaIOF[Math.floor(dias)];
+  };
 
   const addCustomGoal = () => {
     if (newGoal.name && newGoal.value) {
@@ -306,15 +324,23 @@ export default function InvestmentCalculator() {
   const investments = getInvestments();
 
   const calculateInvestment = (initial: number, monthly: number, years: number, rate: number, delayMonths: number = 0) => {
-    const monthlyRate = rate / 12;
     const effectiveMonths = years * 12 - delayMonths;
     
     if (effectiveMonths <= 0) return 0;
     
-    const futureValueInitial = initial * Math.pow(1 + monthlyRate, effectiveMonths);
-    const futureValueMonthly = monthly * ((Math.pow(1 + monthlyRate, effectiveMonths) - 1) / monthlyRate);
+    const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
     
-    return futureValueInitial + futureValueMonthly;
+    let montante = initial;
+    
+    for (let i = 0; i < effectiveMonths; i++) {
+      montante = montante * (1 + monthlyRate);
+      
+      if (i < effectiveMonths - 1) {
+        montante += monthly;
+      }
+    }
+    
+    return montante;
   };
 
   const generateComparisonChartData = () => {
@@ -772,8 +798,18 @@ export default function InvestmentCalculator() {
   }
 
   const finalAmount = calculateInvestment(initialAmount, monthlyDeposit, years, investments[selectedInvestment as keyof typeof investments].rate);
-  const totalInvested = initialAmount + (monthlyDeposit * years * 12);
+  const totalInvested = initialAmount + (monthlyDeposit * (years * 12 - 1));
   const profit = finalAmount - totalInvested;
+
+  const dias = years * 12 * 30;
+  const aliquotaIR = calcularIR(dias);
+  const aliquotaIOF = calcularIOF(dias);
+  const iofRetido = profit * aliquotaIOF;
+  const rendimentoAposIOF = profit - iofRetido;
+  const irRetido = rendimentoAposIOF * aliquotaIR;
+  const totalImpostos = iofRetido + irRetido;
+  const rendimentoLiquido = profit - totalImpostos;
+  const montanteLiquido = totalInvested + rendimentoLiquido;
 
   const finalAmount2 = compareMode ? calculateInvestment(
     scenario2.initialAmount, 
@@ -781,16 +817,19 @@ export default function InvestmentCalculator() {
     scenario2.years, 
     investments[scenario2.investment as keyof typeof investments].rate
   ) : 0;
-  const totalInvested2 = compareMode ? scenario2.initialAmount + (scenario2.monthlyDeposit * scenario2.years * 12) : 0;
+  const totalInvested2 = compareMode ? scenario2.initialAmount + (scenario2.monthlyDeposit * (scenario2.years * 12 - 1)) : 0;
   const profit2 = finalAmount2 - totalInvested2;
 
   const calculateMonthsToGoal = (goalValue: number, initial: number, monthly: number, rate: number) => {
     let months = 0;
-    const monthlyRate = rate / 12;
+    const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
     let accumulated = initial;
     
     while (accumulated < goalValue && months < 600) {
-      accumulated = accumulated * (1 + monthlyRate) + monthly;
+      accumulated = accumulated * (1 + monthlyRate);
+      if (accumulated < goalValue) {
+        accumulated += monthly;
+      }
       months++;
     }
     
@@ -1516,24 +1555,112 @@ export default function InvestmentCalculator() {
                 </div>
               )}
 
-              <div className="bg-gradient-to-br from-emerald-950/50 to-emerald-900/20 p-4 rounded-lg border border-emerald-800/30 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Você investiu</span>
-                  <span className="text-white font-mono">
-                    R$ {totalInvested.toLocaleString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-emerald-400 text-sm font-semibold">Você terá</span>
-                  <span className="text-emerald-400 font-mono text-xl font-bold">
-                    R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-emerald-800/30">
-                  <span className="text-emerald-300 text-sm">Lucro puro</span>
-                  <span className="text-emerald-300 font-mono font-bold">
-                    +R$ {profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+              <div className="space-y-4">
+                {selectedInvestment === 'poupanca' ? (
+                  <div className={`${theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-emerald-950/30 border-emerald-800/50'} rounded-lg p-4 border`}>
+                    <div className="flex items-start gap-2">
+                      <Check className={`w-5 h-5 ${theme === 'light' ? 'text-green-600' : 'text-emerald-400'} flex-shrink-0 mt-0.5`} />
+                      <div>
+                        <p className={`text-sm font-semibold ${theme === 'light' ? 'text-green-800' : 'text-emerald-300'}`}>
+                          Poupança é isenta de impostos
+                        </p>
+                        <p className={`text-xs mt-1 ${theme === 'light' ? 'text-green-700' : 'text-emerald-400/80'}`}>
+                          Não há desconto de IR ou IOF na poupança. Os valores mostrados já são líquidos.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`${theme === 'light' ? 'bg-blue-50' : 'bg-indigo-950/30'} rounded-lg p-4 border ${theme === 'light' ? 'border-blue-200' : 'border-indigo-800/50'}`}>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={mostrarLiquido}
+                        onChange={(e) => setMostrarLiquido(e.target.checked)}
+                        className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                      />
+                      <span className={`ml-3 text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-slate-300'}`}>
+                        💰 Mostrar valores líquidos (descontando IR e IOF)
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {selectedInvestment !== 'poupanca' && mostrarLiquido && (
+                  <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg p-5 text-white space-y-3">
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      💰 Valores Líquidos (após impostos)
+                    </h3>
+                    
+                    {aliquotaIOF > 0 && (
+                      <>
+                        <div className="flex justify-between items-center pb-2 border-b border-indigo-400/40">
+                          <span className="text-indigo-100 text-sm">IOF ({dias} dias):</span>
+                          <span className="font-bold">{(aliquotaIOF * 100).toFixed(2)}%</span>
+                        </div>
+                        <div className="flex justify-between items-center pb-2 border-b border-indigo-400/40">
+                          <span className="text-indigo-100 text-sm">IOF Retido:</span>
+                          <span className="font-bold text-red-200">
+                            - {iofRetido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    
+                    <div className="flex justify-between items-center pb-2 border-b border-indigo-400/40">
+                      <span className="text-indigo-100 text-sm">Alíquota IR:</span>
+                      <span className="font-bold">{(aliquotaIR * 100).toFixed(2)}%</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center pb-2 border-b border-indigo-400/40">
+                      <span className="text-indigo-100 text-sm">IR Retido:</span>
+                      <span className="font-bold text-red-200">
+                        - {irRetido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center pb-2 border-b border-indigo-400/40">
+                      <span className="text-indigo-100 text-sm">Total de Impostos:</span>
+                      <span className="font-bold text-red-200">
+                        - {totalImpostos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center pb-2 border-b border-indigo-400/40">
+                      <span className="text-indigo-100 text-sm">Rendimento Líquido:</span>
+                      <span className="font-bold text-emerald-200">
+                        {rendimentoLiquido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="font-semibold text-base">Montante Líquido:</span>
+                      <span className="font-bold text-2xl">
+                        {montanteLiquido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gradient-to-br from-emerald-950/50 to-emerald-900/20 p-4 rounded-lg border border-emerald-800/30 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 text-sm">Você investiu</span>
+                    <span className="text-white font-mono">
+                      R$ {totalInvested.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-emerald-400 text-sm font-semibold">Você terá (bruto)</span>
+                    <span className="text-emerald-400 font-mono text-xl font-bold">
+                      R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-emerald-800/30">
+                    <span className="text-emerald-300 text-sm">Lucro bruto</span>
+                    <span className="text-emerald-300 font-mono font-bold">
+                      +R$ {profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -2017,6 +2144,56 @@ export default function InvestmentCalculator() {
               <p className="text-slate-500 text-xs">
                 Valores para fins educacionais. Rentabilidade passada não garante resultados futuros.
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Seção Informativa sobre Impostos */}
+        <Card className={`${theme === 'light' ? 'bg-white' : 'bg-slate-900/30'} border-slate-800/50 backdrop-blur`}>
+          <CardContent className="p-6">
+            <h3 className={`text-lg font-semibold mb-4 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
+              📊 Tabelas de Impostos
+            </h3>
+            
+            <div className="mb-6">
+              <h4 className={`font-semibold mb-3 ${theme === 'light' ? 'text-gray-700' : 'text-slate-300'}`}>
+                Imposto de Renda (IR) - Tabela Regressiva
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className={`${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-slate-800/50'} rounded-lg p-3`}>
+                  <div className={`${theme === 'light' ? 'text-gray-600' : 'text-slate-400'} text-xs mb-1`}>Até 180 dias</div>
+                  <div className="font-bold text-red-500 text-lg">22,5%</div>
+                </div>
+                <div className={`${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-slate-800/50'} rounded-lg p-3`}>
+                  <div className={`${theme === 'light' ? 'text-gray-600' : 'text-slate-400'} text-xs mb-1`}>181 a 360 dias</div>
+                  <div className="font-bold text-orange-500 text-lg">20%</div>
+                </div>
+                <div className={`${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-slate-800/50'} rounded-lg p-3`}>
+                  <div className={`${theme === 'light' ? 'text-gray-600' : 'text-slate-400'} text-xs mb-1`}>361 a 720 dias</div>
+                  <div className="font-bold text-yellow-500 text-lg">17,5%</div>
+                </div>
+                <div className={`${theme === 'light' ? 'bg-gray-50 border border-gray-200' : 'bg-slate-800/50'} rounded-lg p-3`}>
+                  <div className={`${theme === 'light' ? 'text-gray-600' : 'text-slate-400'} text-xs mb-1`}>Acima de 720 dias</div>
+                  <div className="font-bold text-green-500 text-lg">15%</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className={`${theme === 'light' ? 'bg-yellow-50 border-l-4 border-yellow-400' : 'bg-yellow-950/30 border-l-4 border-yellow-600'} p-4 rounded`}>
+              <p className={`text-sm font-semibold mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-yellow-300'}`}>
+                ⚠️ IOF (Imposto sobre Operações Financeiras)
+              </p>
+              <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-slate-300'}`}>
+                Incide apenas em resgates feitos antes de 30 dias. A alíquota varia de 96% (no 1º dia) 
+                até 0% (a partir do 30º dia). O IOF é calculado primeiro sobre o rendimento, depois o 
+                IR incide sobre o que sobrou.
+              </p>
+            </div>
+            
+            <div className={`text-xs mt-4 ${theme === 'light' ? 'text-gray-500' : 'text-slate-500'}`}>
+              <p className="mb-1">* Os impostos incidem apenas sobre o rendimento, não sobre o capital investido.</p>
+              <p className="mb-1">* LCI, LCA e debêntures incentivadas são isentas de IR (mas IOF ainda se aplica).</p>
+              <p>* Poupança é isenta tanto de IR quanto de IOF.</p>
             </div>
           </CardContent>
         </Card>
