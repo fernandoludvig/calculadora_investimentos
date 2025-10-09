@@ -6,7 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix",
+    "update:check": "npm outdated",
+    "security:check": "npm audit && npm outdated",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",

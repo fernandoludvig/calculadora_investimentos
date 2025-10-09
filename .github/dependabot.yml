@@ -1,0 +1,58 @@
+# GitHub Dependabot configuration for security updates
+# https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 10
+    
+    # Security-only updates
+    versioning-strategy: increase-if-necessary
+    
+    # Labels to add to pull requests
+    labels:
+      - "dependencies"
+      - "security"
+      - "automated"
+    
+    # Assignees for pull requests
+    reviewers:
+      - "fernandoludvig"
+    
+    # Commit message prefix
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    
+    # Group updates
+    groups:
+      security-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+      
+      major-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+    
+    # Allow updates for specific dependencies
+    allow:
+      - dependency-type: "all"
+    
+    # Ignore specific versions
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
