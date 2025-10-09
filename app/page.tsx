@@ -765,8 +765,8 @@ export default function InvestmentCalculator() {
 
   // Detectar iOS
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-    const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+    const userAgent = navigator.userAgent || navigator.vendor || (window as unknown as { opera: string }).opera;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as unknown as { MSStream: unknown }).MSStream;
     setIsIOS(isIOSDevice);
   }, []);
 
@@ -2321,8 +2321,8 @@ export default function InvestmentCalculator() {
                       2
                     </div>
                     <div>
-                      <p className="font-medium">Role para baixo e toque em "Adicionar à Tela Inicial"</p>
-                      <p className="text-xs text-slate-400">Ou "Add to Home Screen"</p>
+                      <p className="font-medium">Role para baixo e toque em &ldquo;Adicionar à Tela Inicial&rdquo;</p>
+                      <p className="text-xs text-slate-400">Ou &ldquo;Add to Home Screen&rdquo;</p>
                     </div>
                   </div>
                   
@@ -2331,7 +2331,7 @@ export default function InvestmentCalculator() {
                       3
                     </div>
                     <div>
-                      <p className="font-medium">Toque em "Adicionar"</p>
+                      <p className="font-medium">Toque em &ldquo;Adicionar&rdquo;</p>
                       <p className="text-xs text-slate-400">O app aparecerá na sua tela inicial</p>
                     </div>
                   </div>
