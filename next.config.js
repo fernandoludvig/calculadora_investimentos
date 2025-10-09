@@ -38,14 +38,15 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https:",
+              "img-src 'self' data: https: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.bcb.gov.br",
+              "connect-src 'self' https://api.bcb.gov.br https://vercel.live wss://*.pusher.com wss://ws-*.pusher.com",
               "frame-ancestors 'self'",
               "base-uri 'self'",
-              "form-action 'self'"
+              "form-action 'self'",
+              "object-src 'none'"
             ].join('; ')
           }
         ],

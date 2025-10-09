@@ -8,7 +8,7 @@ export function middleware(request: NextRequest) {
   
   const cspHeader = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'nonce-${nonce}'`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'nonce-${nonce}' https://vercel.live`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data:",
@@ -16,8 +16,8 @@ export function middleware(request: NextRequest) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'self'",
-    "connect-src 'self' https://api.bcb.gov.br",
-    "upgrade-insecure-requests",
+    "connect-src 'self' https://api.bcb.gov.br https://vercel.live wss://*.pusher.com wss://ws-*.pusher.com",
+    "worker-src 'self' blob:",
   ].join('; ');
 
   response.headers.set('Content-Security-Policy', cspHeader);
